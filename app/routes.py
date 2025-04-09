@@ -5,7 +5,7 @@ from app.fyers_api import place_order
 
 webhook_bp = Blueprint("webhook", __name__)
 
-@webhook_bp.route("/healthz", methods=["GET"])
+@webhook_bp.route("/readyz", methods=["GET"])
 def health_check():
     return jsonify({"status": "ok"}), 200
 
