@@ -35,3 +35,9 @@ def place_order(payload):
         "takeProfit": 0
     }
     return requests.post(url, json=order_payload, headers=headers).json()
+
+def get_ltp(symbol):
+    url = f"https://api.fyers.in/data-rest/v2/quotes/{symbol}"
+    headers = {"Authorization": f"Bearer {get_access_token()}"}
+    response = requests.get(url, headers=headers).json()
+    return response.get("d", {}).get("v", {}).get("lp")

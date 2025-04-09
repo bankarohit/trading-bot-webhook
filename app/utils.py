@@ -3,6 +3,12 @@ from datetime import datetime
 import math
 import requests
 from app.auth import get_access_token
+import os
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+
+SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+CREDS_FILE = "service_account.json"
 
 
 def get_option_symbol(index_name, strike_price, option_type):
@@ -21,3 +27,12 @@ def get_spot_price(index_symbol, token):
 
 def get_nearest_strike(price, step=50):
     return int(round(price / step) * step)
+
+def log_trade_to_sheet(symbol, action, qty, ltp, sl, tp):
+    creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
+    client = gspread.authorize(creds)
+    sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Trades")
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    row = [now, symbol, action, qty, ltp, sl, tp, "OPEN", "", "", ""]
+    sheet.append_row(row)
