@@ -16,3 +16,14 @@ def webhook():
         return jsonify({"success": False, "error": "Unauthorized"}), 403
     result = place_order(data)
     return jsonify(result)
+
+@webhook_bp.route("/__routes", methods=["GET"])
+def list_routes():
+    import urllib
+    from flask import current_app
+    output = []
+    for rule in current_app.url_map.iter_rules():
+        methods = ','.join(rule.methods)
+        url = urllib.parse.unquote(str(rule))
+        output.append(f"{methods} {url}")
+    return {"routes": output}
