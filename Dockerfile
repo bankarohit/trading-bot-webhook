@@ -14,6 +14,5 @@
     
     EXPOSE 8080
     
-    HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl --fail http://localhost:8080/healthz || exit 1
     
     CMD ["python", "main.py"]
