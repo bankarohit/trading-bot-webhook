@@ -8,7 +8,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-CREDS_FILE = "service_account.json"
+CREDS_FILE = "/secrets/service_account.json"
 
 
 def get_option_symbol(index_name, strike_price, option_type):
