@@ -37,7 +37,12 @@ def place_order(payload):
     return requests.post(url, json=order_payload, headers=headers).json()
 
 def get_ltp(symbol):
-    url = f"https://api.fyers.in/data-rest/v2/quotes/{symbol}"
-    headers = {"Authorization": f"Bearer {get_access_token()}"}
-    response = requests.get(url, headers=headers).json()
-    return response.get("d", {}).get("v", {}).get("lp")
+    try:
+        url = f"https://api.fyers.in/data-rest/v2/quotes/{symbol}"
+        headers = {"Authorization": f"Bearer {get_access_token()}"}
+        response = requests.get(url, headers=headers, timeout=5)
+        response.raise_for_status()
+        return response.json().get("d", {}).get("v", {}).get("lp")
+    except Exception as e:
+        print(f"[ERROR] Failed to get LTP for {symbol}: {e}")
+        return None

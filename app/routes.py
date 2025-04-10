@@ -24,7 +24,7 @@ def webhook():
 
     ltp = get_ltp(symbol)
     if not ltp:
-        return jsonify({"success": False, "error": "Unable to fetch LTP"}), 400
+        ltp = "N/A"  # or ltp = "N/A"
 
     log_trade_to_sheet(symbol, action, qty, ltp, sl, tp)
     return jsonify({"success": True, "message": "Trade logged", "ltp": ltp}), 200
