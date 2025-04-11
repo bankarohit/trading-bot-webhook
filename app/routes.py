@@ -1,8 +1,10 @@
 # ------------------ app/routes.py ------------------
 from flask import Blueprint, request, jsonify
 import os
-from app.fyers_api import get_ltp
+from app.fyers_api import get_ltp, place_order
 from app.utils import log_trade_to_sheet
+from app.auth import get_fyers
+
 
 webhook_bp = Blueprint("webhook", __name__)
 
@@ -12,6 +14,7 @@ def health_check():
 
 @webhook_bp.route("/webhook", methods=["POST"])
 def webhook():
+    fyers = get_fyers()
     data = request.json
     if data.get("token") != os.getenv("WEBHOOK_SECRET_TOKEN"):
         return jsonify({"success": False, "error": "Unauthorized"}), 403
@@ -22,9 +25,9 @@ def webhook():
     sl = data.get("sl")
     tp = data.get("tp")
 
-    ltp = get_ltp(symbol)
+    ltp = get_ltp(symbol, fyers)
     if not ltp:
-        ltp = "N/A"  # or ltp = "N/A"
+        return jsonify({"success": False, "error": "Unable to fetch LTP"}), 400
 
     log_trade_to_sheet(symbol, action, qty, ltp, sl, tp)
-    return jsonify({"success": True, "message": "Trade logged", "ltp": ltp}), 200
+    return jsonify({"success": True, "message": "Trade logged", "ltp": ltp})

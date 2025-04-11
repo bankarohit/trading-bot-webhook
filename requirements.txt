@@ -3,3 +3,4 @@ requests
 python-dotenv
 gspread
 oauth2client
+fyers-apiv3
