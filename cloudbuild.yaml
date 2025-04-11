@@ -1,0 +1,27 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-t', 'asia-south1-docker.pkg.dev/trading-bot-webhook/fyers-webhook-images/trading-bot-webhook:$SHORT_SHA',
+      '.'
+    ]
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'push',
+      'asia-south1-docker.pkg.dev/trading-bot-webhook/fyers-webhook-images/trading-bot-webhook:$SHORT_SHA'
+    ]
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args: [
+      'run', 'deploy', 'trading-bot-webhook',
+      '--image=asia-south1-docker.pkg.dev/trading-bot-webhook/fyers-webhook-images/trading-bot-webhook:$SHORT_SHA',
+      '--region=asia-south1',
+      '--platform=managed',
+      '--allow-unauthenticated',
+      '--service-account=trading-bot-webhook@trading-bot-webhook.iam.gserviceaccount.com'
+    ]
+
+options:
+  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
