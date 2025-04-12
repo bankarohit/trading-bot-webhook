@@ -15,7 +15,8 @@ def generate_access_token():
         secret_key=SECRET_ID,
         redirect_uri=REDIRECT_URI,
         response_type="code",
-        state="sample"
+        state="sample",
+        grant_type="authorization_code"
     )
     if not AUTH_CODE:
         print("\n[INFO] Please visit the Fyers auth URL to get an auth_code:")
