@@ -20,4 +20,7 @@ def place_order(symbol, qty, action, sl, tp, fyersModelInstance):
         "stopLoss": sl or 0,
         "takeProfit": tp or 0
     }
-    return fyersModelInstance.place_order(order_data)
+    print("[DEBUG] Placing order with data:", order_data)
+    response = fyersModelInstance.place_order(order_data)
+    print("[DEBUG] Response from Fyers order API:", response)
+    return response
