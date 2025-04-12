@@ -14,9 +14,16 @@ def health_check():
 
 @webhook_bp.route("/webhook", methods=["POST"])
 def webhook():
-    fyers = get_fyers()
-    data = request.json
-    if data.get("token") != os.getenv("WEBHOOK_SECRET_TOKEN"):
+    data = request.get_json()
+    print("[DEBUG] Incoming webhook payload:", data)
+
+    if not data:
+        print("[ERROR] Empty or invalid JSON payload.")
+        return jsonify({"success": False, "error": "Empty or invalid JSON"}), 400
+
+    token = data.get("token")
+    if token != os.getenv("WEBHOOK_SECRET_TOKEN"):
+        print(f"[ERROR] Unauthorized access. Token provided: {token}")
         return jsonify({"success": False, "error": "Unauthorized"}), 403
 
     symbol = data.get("symbol")
@@ -25,9 +32,18 @@ def webhook():
     sl = data.get("sl")
     tp = data.get("tp")
 
+    if not symbol or not action:
+        print(f"[ERROR] Missing fields - symbol: {symbol}, action: {action}, qty: {qty}")
+        return jsonify({"success": False, "error": "Missing required fields"}), 400
+
+    fyers = get_fyers()
     ltp = get_ltp(symbol, fyers)
     if not ltp:
-        return jsonify({"success": False, "error": "Unable to fetch LTP"}), 400
+        print(f"[WARN] LTP not found for symbol: {symbol}. Proceeding with order logging.")
+        ltp = "N/A"
 
+    order_response = place_order(symbol, qty, action, sl, tp, fyers)
     log_trade_to_sheet(symbol, action, qty, ltp, sl, tp)
-    return jsonify({"success": True, "message": "Trade logged", "ltp": ltp})
+
+    print("[INFO] Trade processed and logged successfully.")
+    return jsonify({"success": True, "message": "Trade logged and order placed", "ltp": ltp, "order_response": order_response})
