@@ -1,6 +1,6 @@
 # ------------------ app/auth.py ------------------
 import os
-from fyers_api import accessToken, fyersModel
+from fyers_apiv3 import accessToken, fyersModel
 import webbrowser
 
 ACCESS_TOKEN_FILE = "access_token.txt"
