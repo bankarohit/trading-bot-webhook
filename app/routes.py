@@ -31,8 +31,9 @@ def webhook():
     qty = data.get("qty", 50)
     sl = data.get("sl")
     tp = data.get("tp")
+    productType = data.get("productType")
 
-    if not symbol or not action:
+    if not symbol or not action or not productType:
         print(f"[ERROR] Missing fields - symbol: {symbol}, action: {action}, qty: {qty}")
         return jsonify({"success": False, "error": "Missing required fields"}), 400
 
@@ -42,7 +43,7 @@ def webhook():
         print(f"[WARN] LTP not found for symbol: {symbol}. Proceeding with order logging.")
         ltp = "N/A"
 
-    order_response = place_order(symbol, qty, action, sl, tp, fyers)
+    order_response = place_order(symbol, qty, action, sl, tp, productType, fyers)
     log_trade_to_sheet(symbol, action, qty, ltp, sl, tp)
 
     print("[INFO] Trade processed and logged successfully.")
