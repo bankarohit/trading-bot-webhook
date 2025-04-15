@@ -79,7 +79,7 @@ def refresh_access_token():
         print("[AUTH] FYERS_PIN environment variable not set")
         return None
 
-    app_hash = hashlib.sha256(f"{APP_ID}{SECRET_ID}".encode()).hexdigest()
+    app_hash = hashlib.sha256(f"{APP_ID}:{SECRET_ID}".encode()).hexdigest()
     payload = {
         "grant_type": "refresh_token",
         "appIdHash": app_hash,

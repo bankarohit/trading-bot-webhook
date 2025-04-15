@@ -1,4 +1,4 @@
-# ------------------ Dockerfile ------------------
+### ------------------ Dockerfile ------------------
     FROM python:3.10-slim
 
     # Set environment variables
@@ -18,5 +18,5 @@
     
     CMD ["python", "main.py"]
     
-# ------------------ Dockerfile -------------------
+### ------------------ Dockerfile -------------------
 
