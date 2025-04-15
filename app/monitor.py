@@ -60,9 +60,11 @@ def start_monitoring_service():
         try:
             print("[MONITOR] Fetching open trades")
             open_trades = get_open_trades_from_sheet()
+            print(f"[MONITOR] Open trades: {open_trades}")
             for trade in open_trades:
                 trade_id = trade[0]  # unique ID
                 if trade_id not in monitored:
+                    print(f"[MONITOR] Starting monitoring for trade ID: {trade_id}")
                     thread = TradeMonitorThread(trade)
                     thread.start()
                     monitored[trade_id] = thread
@@ -70,6 +72,7 @@ def start_monitoring_service():
             # Collect completed trades and update GSheet
             while not result_queue.empty():
                 trade, status, ltp = result_queue.get()
+                print(f"[MONITOR] Updating: Trade {trade[0]} status: {status}, LTP: {ltp}")
                 update_trade_status_in_sheet(trade, status, ltp)
 
         except Exception as e:
