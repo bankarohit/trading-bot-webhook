@@ -11,7 +11,7 @@ def get_ltp(symbol, fyersModelInstance):
         return {"code": -1, "message": str(e)}
         
 
-def place_order(symbol, qty, action, sl, tp, productType, fyersModelInstance):
+def place_order(symbol, qty, action, fyersModelInstance, sl = 1, tp = 2, productType = "BO"):
     if not qty:
         if symbol.startswith("NSE:NIFTY"):
             qty = 75 # Lot size of nifty is 75
@@ -24,14 +24,14 @@ def place_order(symbol, qty, action, sl, tp, productType, fyersModelInstance):
         "qty": qty,
         "type": 2, # Market order
         "side": 1 if action.upper() == "BUY" else -1,
-        "productType": "BO",
+        "productType": productType,
         "limitPrice": 0,
         "stopPrice": 0,
         "validity": "DAY",
         "disclosedQty": 0,
         "offlineOrder": False,
-        "stopLoss": 1, # random value for testing
-        "takeProfit": 2  # random value for testing
+        "stopLoss": sl, # random value for testing
+        "takeProfit": tp  # random value for testing
     }
     try:
         print("[DEBUG] Placing order with data:", order_data)

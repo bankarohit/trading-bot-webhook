@@ -50,9 +50,9 @@ def webhook():
         optionType = data.get("optionType")
         expiry = data.get("expiry")
         action = data.get("action")
-        qty = data.get("qty")
-        sl = data.get("sl")
-        tp = data.get("tp")
+        qty = data.get("qty", 75)
+        sl = data.get("sl", 1)
+        tp = data.get("tp", 2)
         productType = data.get("productType", "INTRADAY")
 
         if not symbol or not action or not strikeprice or not optionType or not expiry or not token:
@@ -77,12 +77,14 @@ def webhook():
             ltp = "N/A"
 
         try:
-            order_response = place_order(fyers_symbol, qty, action, sl, tp, productType, fyers)
+            order_response = place_order(fyers_symbol, qty, action, fyers, sl, tp, productType)
         except Exception as e:
             traceback.print_exc()
             print(f"[ERROR] Failed to place order, {order_response} , {str(e)}")
 
         try:
+            #TODO: qty may be different from the one in place_order
+            # need to verify later.
             gSheetresponse = log_trade_to_sheet(fyers_symbol, action, qty, ltp, sl, tp)
         except Exception as e:
             traceback.print_exc()

@@ -28,6 +28,8 @@ def start_monitoring_service():
 
             # Collect completed trades and update GSheet
             while not result_queue.empty():
+                #TODO : this is only update either SL or TP hit. 
+                #need to add monitor for trades that are closed when opposite signal is received
                 trade, status, ltp = result_queue.get()
                 print(f"[MONITOR] Updating: Trade {trade[0]} status: {status}, LTP: {ltp}")
                 update_trade_status_in_sheet(trade, status, ltp)
