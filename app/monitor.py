@@ -9,10 +9,35 @@ from app.fyers_api import get_ltp
 import traceback
 import os
 result_queue = Queue()
-
 polling_interval = int(os.getenv("POLLING_INTERVAL", 30))
 
-class TradeMonitorThread(threading.Thread):
+def start_monitoring_service():
+    monitored = {}
+    while True:
+        try:
+            print("[MONITOR] Fetching open trades")
+            open_trades = get_open_trades_from_sheet()
+            print(f"[MONITOR] Open trades: {open_trades}")
+            for trade in open_trades:
+                trade_id = trade[0]  # unique ID
+                if trade_id not in monitored:
+                    print(f"[MONITOR] Starting monitoring for trade ID: {trade_id}")
+                    thread = MonitorThread(trade)
+                    thread.start()
+                    monitored[trade_id] = thread
+
+            # Collect completed trades and update GSheet
+            while not result_queue.empty():
+                trade, status, ltp = result_queue.get()
+                print(f"[MONITOR] Updating: Trade {trade[0]} status: {status}, LTP: {ltp}")
+                update_trade_status_in_sheet(trade, status, ltp)
+
+        except Exception as e:
+            traceback.print_exc()
+            print(f"[MONITOR ERROR] {e}")
+        time.sleep(polling_interval)
+
+class MonitorThread(threading.Thread):
     def __init__(self, trade):
         super().__init__(daemon=True)
         self.trade = trade
@@ -54,30 +79,3 @@ class TradeMonitorThread(threading.Thread):
         except Exception as e:
             traceback.print_exc()
             print(f"[MONITOR THREAD ERROR] {e}")
-
-
-def start_monitoring_service():
-    monitored = {}
-    while True:
-        try:
-            print("[MONITOR] Fetching open trades")
-            open_trades = get_open_trades_from_sheet()
-            print(f"[MONITOR] Open trades: {open_trades}")
-            for trade in open_trades:
-                trade_id = trade[0]  # unique ID
-                if trade_id not in monitored:
-                    print(f"[MONITOR] Starting monitoring for trade ID: {trade_id}")
-                    thread = TradeMonitorThread(trade)
-                    thread.start()
-                    monitored[trade_id] = thread
-
-            # Collect completed trades and update GSheet
-            while not result_queue.empty():
-                trade, status, ltp = result_queue.get()
-                print(f"[MONITOR] Updating: Trade {trade[0]} status: {status}, LTP: {ltp}")
-                update_trade_status_in_sheet(trade, status, ltp)
-
-        except Exception as e:
-            traceback.print_exc()
-            print(f"[MONITOR ERROR] {e}")
-        time.sleep(5)
