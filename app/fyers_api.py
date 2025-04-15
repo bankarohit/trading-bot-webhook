@@ -1,5 +1,4 @@
 # ------------------ app/fyers_api.py ------------------
-from app.auth import get_fyers
 import traceback
 
 def get_ltp(symbol, fyersModelInstance):

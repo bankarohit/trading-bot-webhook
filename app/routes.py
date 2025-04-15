@@ -1,11 +1,10 @@
 # ------------------ app/routes.py ------------------
 from flask import Blueprint, request, jsonify
-import os
 from app.fyers_api import get_ltp, place_order
-from app.utils import log_trade_to_sheet
+from app.utils import log_trade_to_sheet, get_symbol_from_csv
 from app.auth import get_fyers, get_auth_code_url, get_access_token, refresh_token
-from app.utils import get_symbol_from_csv
 import traceback
+import os
 
 webhook_bp = Blueprint("webhook", __name__)
 
@@ -26,11 +25,11 @@ def refresh_token():
         if token:
             return jsonify({"success": True, "message": "Token refreshed"}), 200
         print("[ERROR] Token refresh returned None")
-        return jsonify({"success": False, "message": "Failed to refresh token"}), 502
+        return jsonify({"success": False, "message": "Failed to refresh token"}), 501
     except Exception as e:
         traceback.print_exc()
         print(f"[FATAL] Error refreshing token: {str(e)}")
-        return jsonify({"success": False, "message": "Internal server error"}), 501
+        return jsonify({"success": False, "message": "Internal server error"}), 502
     
 @webhook_bp.route("/auth-url", methods=["GET"])
 def get_auth_url():
@@ -94,4 +93,4 @@ def webhook():
     except Exception as e:
         traceback.print_exc()
         print(f"[FATAL] Unhandled error in webhook: {str(e)}")
-        return jsonify({"success": False, "error": e}), 500
+        return jsonify({"success": False, "error": e}), 505
