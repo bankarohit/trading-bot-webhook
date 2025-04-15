@@ -23,7 +23,7 @@ symbol_master_columns = [
 
 def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
     try:
-        print(f"[DEBUG] Requested: symbol={symbol}, strike_price={strike_price}, option_type={option_type}, expiry_type={expiry_type}")
+        print(f"[DEBUG] Requested: symbol={symbol.upper()}, strike_price={round(float(strike_price))}, option_type={option_type.upper()}, expiry_type={expiry_type}")
 
         df = pd.read_csv(symbol_master_url, header=None, names=symbol_master_columns)
         print(f"[DEBUG] Loaded symbol file with {len(df)} rows")
@@ -33,11 +33,19 @@ def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
 
         df = df[df['strike_price'].astype(float).round() == round(float(strike_price))]
         print(f"[DEBUG] Rows after strike match: {len(df)}")
+        print("[DEBUG] DataFrame after strike match:")
+        print(df[['underlying_symbol','symbol_ticker', 'strike_price', 'option_type', 'expiry_date']].to_string(index=False))
+
 
         df = df[df['option_type'].str.upper() == option_type.upper()]
         print(f"[DEBUG] Rows after option type match: {len(df)}")
+        print("[DEBUG] DataFrame after strike match:")
+        print(df[['underlying_symbol','symbol_ticker', 'strike_price', 'option_type', 'expiry_date']].to_string(index=False))
+
 
         today = pd.Timestamp.now().normalize()
+
+        print(f"[DEBUG] Today's date: {today}")
         df['expiry_date'] = pd.to_datetime(df['expiry_date'], errors='coerce')
         df = df.dropna(subset=['expiry_date'])
         df = df[df['expiry_date'].dt.normalize() >= today]
