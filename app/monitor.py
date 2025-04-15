@@ -6,6 +6,7 @@ from queue import Queue
 from app.auth import get_fyers
 from app.utils import get_open_trades_from_sheet, update_trade_status_in_sheet
 from app.fyers_api import get_ltp
+import traceback
 
 result_queue = Queue()
 
@@ -49,6 +50,7 @@ class TradeMonitorThread(threading.Thread):
                         break
                 time.sleep(5)
         except Exception as e:
+            traceback.print_exc()
             print(f"[MONITOR THREAD ERROR] {e}")
 
 
@@ -71,5 +73,6 @@ def start_monitoring_service():
                 update_trade_status_in_sheet(trade, status, ltp)
 
         except Exception as e:
+            traceback.print_exc()
             print(f"[MONITOR ERROR] {e}")
         time.sleep(5)

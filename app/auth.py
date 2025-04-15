@@ -4,6 +4,7 @@ import json
 import hashlib
 import requests
 from fyers_apiv3 import fyersModel
+import traceback
 
 TOKENS_FILE = "tokens.json"
 
@@ -20,6 +21,7 @@ def save_tokens(data):
             json.dump(data, f)
         print("[AUTH] Tokens saved successfully.")
     except Exception as e:
+        traceback.print_exc()
         print(f"[AUTH] Failed to save tokens: {e}")
 
 
@@ -29,6 +31,7 @@ def load_tokens():
             with open(TOKENS_FILE, "r") as f:
                 return json.load(f)
     except Exception as e:
+        traceback.print_exc()
         print(f"[AUTH] Failed to load tokens: {e}")
     return {}
 
@@ -64,6 +67,7 @@ def generate_tokens_from_auth_code():
             return response["access_token"]
         print(f"[AUTH] Failed to generate token: {response}")
     except Exception as e:
+        traceback.print_exc()
         print(f"[AUTH] Exception during token generation: {e}")
     return None
 
@@ -94,10 +98,10 @@ def refresh_access_token():
         if response.get("s") == "ok" and "access_token" in response:
             tokens["access_token"] = response["access_token"]
             save_tokens(tokens)
-            print("[AUTH] Access token refreshed successfully.")
             return tokens["access_token"]
         print(f"[AUTH] Refresh token failed: {response}")
     except Exception as e:
+        traceback.print_exc()
         print(f"[AUTH] Exception during token refresh: {e}")
     return None
 

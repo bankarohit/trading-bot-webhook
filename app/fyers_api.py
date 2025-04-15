@@ -1,11 +1,13 @@
 # ------------------ app/fyers_api.py ------------------
 from app.auth import get_fyers
+import traceback
 
 def get_ltp(symbol, fyersModelInstance):
     try:
         response = fyersModelInstance.quotes({"symbols": symbol})
         return response.get("d", [{}])[0].get("v", {}).get("lp")
     except Exception as e:
+        traceback.print_exc()
         print(f"[ERROR] Exception in get_ltp: {str(e)}")
         return {"code": -1, "message": str(e)}
         
@@ -38,5 +40,6 @@ def place_order(symbol, qty, action, sl, tp, productType, fyersModelInstance):
         print("[DEBUG] Response from Fyers order API:", response)
         return response
     except Exception as e:
+        traceback.print_exc()
         print(f"[ERROR] Exception while placing order: {str(e)}")
         return {"code": -1, "message": str(e)}

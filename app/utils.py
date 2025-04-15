@@ -7,6 +7,8 @@ from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
 import re, uuid, time
 import threading
+import traceback
+
 lock = threading.Lock()
 
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -62,6 +64,7 @@ def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
         print(f"FyersTickerSYmbol: {fyersTickerSymbol}")
         return fyersTickerSymbol
     except Exception as e:
+        traceback.print_exc()
         print(f"[ERROR] Exception in get_symbol_from_csv: {str(e)}")
         return None
 
@@ -77,6 +80,7 @@ def log_trade_to_sheet(symbol, action, qty, ltp, sl, tp):
         sheet.append_row(row)
         return True
     except Exception as e:
+        traceback.print_exc()
         print(f"[ERROR] Failed to log trade to Google Sheet: {str(e)}")
         return False
     
@@ -88,6 +92,7 @@ def get_open_trades_from_sheet():
             rows = sheet.get_all_values()
             return [row for row in rows[1:] if row[8] == "OPEN"]  # assuming row[8] is status now
         except Exception as e:
+            traceback.print_exc()
             print(f"[RETRY {attempt+1}] Failed to fetch open trades: {e}")
             time.sleep(2)
     return []
@@ -108,5 +113,6 @@ def update_trade_status_in_sheet(trade, status, exit_price):
                         sheet.update_cell(idx + 1, 12, "AUTO")  # reason
                         return
         except Exception as e:
+            traceback.print_exc()
             print(f"[RETRY {attempt+1}] Failed to update trade status: {e}")
             time.sleep(2)

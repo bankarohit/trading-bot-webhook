@@ -5,6 +5,7 @@ from app.fyers_api import get_ltp, place_order
 from app.utils import log_trade_to_sheet
 from app.auth import get_fyers, refresh_access_token, get_auth_code_url
 from app.utils import get_symbol_from_csv
+import traceback
 
 webhook_bp = Blueprint("webhook", __name__)
 
@@ -21,6 +22,7 @@ def refresh_token():
         print("[ERROR] Token refresh returned None")
         return jsonify({"success": False, "message": "Failed to refresh token"}), 500
     except Exception as e:
+        traceback.print_exc()
         print(f"[FATAL] Error refreshing token: {str(e)}")
         return jsonify({"success": False, "message": "Internal server error"}), 501
     
@@ -65,21 +67,25 @@ def webhook():
         try:
             ltp = get_ltp(fyers_symbol, fyers)
         except Exception as e:
+            traceback.print_exc()
             print(f"[ERROR] Failed to get LTP for symbol {symbol}: {str(e)}")
             ltp = "N/A"
 
         try:
             order_response = place_order(fyers_symbol, qty, action, sl, tp, productType, fyers)
         except Exception as e:
+            traceback.print_exc()
             print(f"[ERROR] Failed to place order, {order_response} , {str(e)}")
 
         try:
             gSheetresponse = log_trade_to_sheet(fyers_symbol, action, qty, ltp, sl, tp)
         except Exception as e:
+            traceback.print_exc()
             print(f"[ERROR] Failed to log trade to sheet: {str(e)}")
 
         return jsonify({"success": True, "message": "Trade logged and order placed", "ltp": ltp, "order_response": order_response, "gSheetresponse": gSheetresponse}), 200
 
     except Exception as e:
+        traceback.print_exc()
         print(f"[FATAL] Unhandled error in webhook: {str(e)}")
         return jsonify({"success": False, "error": e}), 500
