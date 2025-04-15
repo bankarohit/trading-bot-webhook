@@ -33,19 +33,11 @@ def get_auth_url():
 def webhook():
     try:
         data = request.get_json()
-        print("[DEBUG] Incoming webhook payload:", data)
 
         if not data:
-            print("[ERROR] Empty or invalid JSON payload.")
-            print("[DEBUG] Request headers:", dict(request.headers))
-            print("[DEBUG] Raw body:", request.data.decode("utf-8"))
-            return jsonify({"success": False, "error": "Empty or invalid JSON"}), 400
+            return jsonify({"success": False, "error": "Empty or invalid JSON", "data": data}), 400
 
         token = data.get("token")
-        if token != os.getenv("WEBHOOK_SECRET_TOKEN"):
-            print(f"[ERROR] Unauthorized access from IP: {request.remote_addr}. Token provided: {token}")
-            return jsonify({"success": False, "error": "Unauthorized"}), 401
-
         symbol = data.get("symbol")
         strikeprice = data.get("strikeprice")
         optionType = data.get("optionType")
@@ -56,10 +48,14 @@ def webhook():
         tp = data.get("tp")
         productType = data.get("productType", "INTRADAY")
 
-        if not symbol or not action or not strikeprice or not optionType or not expiry:
-            print(f"[ERROR] Missing fields - symbol: {symbol}, action: {action}, strike: {strikeprice}, option_type: {optionType}, expiry: {expiry}")
-            return jsonify({"success": False, "error": "Missing required fields"}), 402
+        if not symbol or not action or not strikeprice or not optionType or not expiry or not token:
+            print(f"[ERROR] Missing fields - symbol: {symbol}, action: {action}, strike: {strikeprice}, option_type: {optionType}, expiry: {expiry}, token: {token}")
+            return jsonify({"success": False, "error": "Missing required fields"}), 401
 
+        if token != os.getenv("WEBHOOK_SECRET_TOKEN"):
+            print(f"[ERROR] Unauthorized access from IP: {request.remote_addr}. Token provided: {token}")
+            return jsonify({"success": False, "error": "Unauthorized"}), 402
+        
         fyers = get_fyers()
         fyers_symbol = get_symbol_from_csv(symbol, strikeprice, optionType, expiry)
         
@@ -72,12 +68,18 @@ def webhook():
             print(f"[ERROR] Failed to get LTP for symbol {symbol}: {str(e)}")
             ltp = "N/A"
 
-        order_response = place_order(fyers_symbol, qty, action, sl, tp, productType, fyers)
-        log_trade_to_sheet(fyers_symbol, action, qty, ltp, sl, tp)
+        try:
+            order_response = place_order(fyers_symbol, qty, action, sl, tp, productType, fyers)
+        except Exception as e:
+            print(f"[ERROR] Failed to place order, {order_response} , {str(e)}")
 
-        print("[INFO] Trade processed and logged successfully.")
-        return jsonify({"success": True, "message": "Trade logged and order placed", "ltp": ltp, "order_response": order_response})
+        try:
+            gSheetresponse = log_trade_to_sheet(fyers_symbol, action, qty, ltp, sl, tp)
+        except Exception as e:
+            print(f"[ERROR] Failed to log trade to sheet: {str(e)}")
+
+        return jsonify({"success": True, "message": "Trade logged and order placed", "ltp": ltp, "order_response": order_response, "gSheetresponse": gSheetresponse}), 200
 
     except Exception as e:
         print(f"[FATAL] Unhandled error in webhook: {str(e)}")
-        return jsonify({"success": False, "error": "Internal server error"}), 500
+        return jsonify({"success": False, "error": e}), 500

@@ -65,3 +65,4 @@ Use the generated URL as your webhook endpoint in TradingView.
 pytest tests/
 ```
 Covers: token management, webhook, utils, expiry detection
+

@@ -7,7 +7,8 @@ def get_ltp(symbol, fyersModelInstance):
         return response.get("d", [{}])[0].get("v", {}).get("lp")
     except Exception as e:
         print(f"[ERROR] Exception in get_ltp: {str(e)}")
-        return None
+        return {"code": -1, "message": str(e)}
+        
 
 def place_order(symbol, qty, action, sl, tp, productType, fyersModelInstance):
     if not qty:
@@ -16,7 +17,7 @@ def place_order(symbol, qty, action, sl, tp, productType, fyersModelInstance):
         elif symbol.startswith("NSE:BANKNIFTY"):
             qty = 30 # Lot size of bankNifty is 30
         else:
-            qty = 1 # Default lot size for other symbols
+            qty = 1 # Default size for other symbols
     order_data = {
         "symbol": symbol,
         "qty": qty,
