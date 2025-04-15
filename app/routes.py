@@ -51,9 +51,9 @@ def webhook():
         optionType = data.get("optionType")
         expiry = data.get("expiry")
         action = data.get("action")
-        qty = data.get("qty", 50)
-        sl = data.get("sl", 0)
-        tp = data.get("tp", 0)
+        qty = data.get("qty")
+        sl = data.get("sl")
+        tp = data.get("tp")
         productType = data.get("productType", "INTRADAY")
 
         if not symbol or not action or not strikeprice or not optionType or not expiry:
@@ -62,6 +62,7 @@ def webhook():
 
         fyers = get_fyers()
         fyers_symbol = get_symbol_from_csv(symbol, strikeprice, optionType, expiry)
+        
         if not fyers_symbol:
             return jsonify({"success": False, "error": "Could not resolve symbol"}), 403
         

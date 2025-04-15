@@ -10,9 +10,16 @@ def get_ltp(symbol, fyersModelInstance):
         return None
 
 def place_order(symbol, qty, action, sl, tp, productType, fyersModelInstance):
+    if not qty:
+        if symbol.startswith("NSE:NIFTY"):
+            qty = 75 # Lot size of nifty is 75
+        elif symbol.startswith("NSE:BANKNIFTY"):
+            qty = 30 # Lot size of bankNifty is 30
+        else:
+            qty = 1 # Default lot size for other symbols
     order_data = {
         "symbol": symbol,
-        "qty": qty or 50,
+        "qty": qty,
         "type": 2, # Market order
         "side": 1 if action.upper() == "BUY" else -1,
         "productType": "BO",
