@@ -1,13 +1,13 @@
 # ------------------ app/utils.py ------------------
 from datetime import datetime
-import math
-import requests
 from app.auth import get_access_token
 import os
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
-import re
+import re, uuid, time
+import threading
+lock = threading.Lock()
 
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 CREDS_FILE = "/secrets/service_account.json"
@@ -61,11 +61,44 @@ def log_trade_to_sheet(symbol, action, qty, ltp, sl, tp):
         creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
         client = gspread.authorize(creds)
         sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Trades")
-
+        unique_id = str(uuid.uuid4())
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        row = [now, symbol, action, qty, ltp, sl, tp, "OPEN", "", "", ""]
+        row = [unique_id, now, symbol, action, qty, ltp, sl, tp, "OPEN", "", "", ""]
         sheet.append_row(row)
         return True
     except Exception as e:
         print(f"[ERROR] Failed to log trade to Google Sheet: {str(e)}")
         return False
+    
+def get_open_trades_from_sheet():
+    for attempt in range(3):
+        try:
+            creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
+            client = gspread.authorize(creds)
+            sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Trades")
+            rows = sheet.get_all_values()
+            return [row for row in rows[1:] if row[8] == "OPEN"]  # assuming row[8] is status now
+        except Exception as e:
+            print(f"[RETRY {attempt+1}] Failed to fetch open trades: {e}")
+            time.sleep(2)
+    return []
+
+def update_trade_status_in_sheet(trade, status, exit_price):
+    for attempt in range(3):
+        try:
+            with lock:
+                creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
+                client = gspread.authorize(creds)
+                sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Trades")
+                all_rows = sheet.get_all_values()
+                for idx, row in enumerate(all_rows):
+                    if row[0] == trade[0]:
+                        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        sheet.update_cell(idx + 1, 9, status)  # status
+                        sheet.update_cell(idx + 1, 10, exit_price)  # exit price
+                        sheet.update_cell(idx + 1, 11, now)  # exit time
+                        sheet.update_cell(idx + 1, 12, "AUTO")  # reason
+                        return
+        except Exception as e:
+            print(f"[RETRY {attempt+1}] Failed to update trade status: {e}")
+            time.sleep(2)
