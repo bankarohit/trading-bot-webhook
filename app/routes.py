@@ -14,11 +14,16 @@ def health_check():
 
 @webhook_bp.route("/refresh-token", methods=["POST"])
 def refresh_token():
-    token = refresh_access_token()
-    if token:
-        return jsonify({"success": True, "message": "Token refreshed"}), 200
-    return jsonify({"success": False, "message": "Failed to refresh token"}), 500
-
+    try:
+        token = refresh_access_token()
+        if token:
+            return jsonify({"success": True, "message": "Token refreshed"}), 200
+        print("[ERROR] Token refresh returned None")
+        return jsonify({"success": False, "message": "Failed to refresh token"}), 500
+    except Exception as e:
+        print(f"[FATAL] Error refreshing token: {str(e)}")
+        return jsonify({"success": False, "message": "Internal server error"}), 501
+    
 @webhook_bp.route("/auth-url", methods=["GET"])
 def get_auth_url():
     url = get_auth_code_url()
