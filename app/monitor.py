@@ -7,8 +7,10 @@ from app.auth import get_fyers
 from app.utils import get_open_trades_from_sheet, update_trade_status_in_sheet
 from app.fyers_api import get_ltp
 import traceback
-
+import os
 result_queue = Queue()
+
+polling_interval = int(os.getenv("POLLING_INTERVAL", 30))
 
 class TradeMonitorThread(threading.Thread):
     def __init__(self, trade):
@@ -48,7 +50,7 @@ class TradeMonitorThread(threading.Thread):
                     elif ltp <= tp:
                         result_queue.put((self.trade, "TARGET HIT", ltp))
                         break
-                time.sleep(5)
+                time.sleep(polling_interval)
         except Exception as e:
             traceback.print_exc()
             print(f"[MONITOR THREAD ERROR] {e}")
