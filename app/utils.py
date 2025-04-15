@@ -20,6 +20,7 @@ symbol_master_columns = [
     "underlying_symbol", "underlying_scrip_code", "strike_price",
     "option_type", "underlying_fytoken", "reserved_1", "reserved_2", "reserved_3"
 ]
+
 def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
     try:
         print(f"[DEBUG] Requested: symbol={symbol}, strike_price={strike_price}, option_type={option_type}, expiry_type={expiry_type}")
@@ -36,10 +37,10 @@ def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
         df = df[df['option_type'].str.upper() == option_type.upper()]
         print(f"[DEBUG] Rows after option type match: {len(df)}")
 
-        today = datetime.now()
+        today = pd.Timestamp.now().normalize()
         df['expiry_date'] = pd.to_datetime(df['expiry_date'], errors='coerce')
         df = df.dropna(subset=['expiry_date'])
-        df = df[df['expiry_date'] >= today]
+        df = df[df['expiry_date'].dt.normalize() >= today]
         print(f"[DEBUG] Rows after expiry_date >= today: {len(df)}")
 
         expiry = None
