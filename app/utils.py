@@ -46,7 +46,7 @@ def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
         today = pd.Timestamp.now().normalize()
 
         print(f"[DEBUG] Today's date: {today}")
-        df['expiry_date'] = pd.to_datetime(df['expiry_date'], errors='coerce')
+        df['expiry_date'] = pd.to_datetime(df['expiry_date'], unit='s', errors='coerce')
         df = df.dropna(subset=['expiry_date'])
         df = df[df['expiry_date'].dt.normalize() >= today]
         print(f"[DEBUG] Rows after expiry_date >= today: {len(df)}")
