@@ -22,6 +22,16 @@ symbol_master_columns = [
     "option_type", "underlying_fytoken", "reserved_1", "reserved_2", "reserved_3"
 ]
 
+_gspread_client = None
+
+def get_sheet_client():
+    global _gspread_client
+    if _gspread_client is None:
+        print("[DEBUG] Initializing gspread client")
+        creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
+        _gspread_client = gspread.authorize(creds)
+    return _gspread_client
+
 def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
     try:
         print(f"[DEBUG] Requested: symbol={symbol.upper()}, strike_price={round(float(strike_price))}, option_type={option_type.upper()}, expiry_type={expiry_type}")
@@ -58,8 +68,8 @@ def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
 
 def log_trade_to_sheet(symbol, action, qty, ltp, sl, tp):
     try:
-        creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
-        client = gspread.authorize(creds)
+        
+        client = get_sheet_client()
         sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Trades")
         unique_id = str(uuid.uuid4())
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -73,8 +83,7 @@ def log_trade_to_sheet(symbol, action, qty, ltp, sl, tp):
 def get_open_trades_from_sheet():
     for attempt in range(3):
         try:
-            creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
-            client = gspread.authorize(creds)
+            client = get_sheet_client()
             sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Trades")
             rows = sheet.get_all_values()
             return [row for row in rows[1:] if row[8] == "OPEN"]  # assuming row[8] is status now
@@ -87,8 +96,7 @@ def update_trade_status_in_sheet(trade, status, exit_price):
     for attempt in range(3):
         try:
             with lock:
-                creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
-                client = gspread.authorize(creds)
+                client = get_sheet_client()
                 sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Trades")
                 all_rows = sheet.get_all_values()
                 for idx, row in enumerate(all_rows):

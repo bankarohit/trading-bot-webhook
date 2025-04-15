@@ -56,6 +56,7 @@ def start_monitoring_service():
     monitored = {}
     while True:
         try:
+            print("[MONITOR] Fetching open trades")
             open_trades = get_open_trades_from_sheet()
             for trade in open_trades:
                 trade_id = trade[0]  # unique ID
