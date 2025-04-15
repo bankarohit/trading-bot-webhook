@@ -4,3 +4,5 @@ python-dotenv
 gspread
 oauth2client
 fyers-apiv3
+pytest
+pytest-mock

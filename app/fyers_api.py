@@ -12,10 +12,10 @@ def get_ltp(symbol, fyersModelInstance):
 def place_order(symbol, qty, action, sl, tp, productType, fyersModelInstance):
     order_data = {
         "symbol": symbol,
-        "qty": qty,
-        "type": 2,
+        "qty": qty or 50,
+        "type": 2, # Market order
         "side": 1 if action.upper() == "BUY" else -1,
-        "productType": productType,
+        "productType": "BO",
         "limitPrice": 0,
         "stopPrice": 0,
         "validity": "DAY",

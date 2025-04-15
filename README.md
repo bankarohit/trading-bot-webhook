@@ -1,36 +1,67 @@
+### ----------------------------- README.md -----------------------------
 # Fyers Webhook Trading Bot
 
-This is a Flask-based webhook server designed for Cloud Run that listens for TradingView alerts and places option orders via the Fyers API.
+A Flask-based webhook listener for TradingView alerts that places option orders on Fyers.
+Deployed on **Google Cloud Run**.
 
-## 🔧 Setup Instructions
+## 🚀 Features
+- ✅ Webhook listener for TradingView alerts
+- ✅ Auto-refresh of Fyers access token using refresh_token
+- ✅ Real-time symbol resolution using Fyers NSE_FO.csv
+- ✅ Accurate expiry detection (WEEKLY/MONTHLY)
+- ✅ Google Sheets integration to log trades
+- ✅ Healthcheck, token utilities, and modular code
+- ✅ Unit tests with 100% coverage
 
-1. Create a Fyers API App and get:
-   - App ID
-   - Secret ID
-   - Redirect URI
-   - Authorization Code
+## 🛠 Setup Instructions
 
-2. Paste these into a `.env` file based on `.env.example`.
+### 🔑 Step 1: Create Fyers API App
+- Register at Fyers developer console
+- Obtain `APP_ID`, `SECRET_ID`, and set `REDIRECT_URI`
 
-3. Push this project to GitHub.
-
-4. Deploy using **Google Cloud Run**:
-   - Source: GitHub repo
-   - Port: 8080
-   - Allow unauthenticated requests
-
-5. Use the Cloud Run URL as your **Webhook URL** in TradingView.
-
-## 📬 Sample Payload (TradingView Alert)
-
+### 🔐 Step 2: `.env` Variables
+Create a `.env` file:
 ```
+FYERS_APP_ID=...
+FYERS_SECRET_ID=...
+FYERS_REDIRECT_URI=...
+WEBHOOK_SECRET_TOKEN=...
+GOOGLE_SHEET_ID=...
+```
+
+### 🔁 Step 3: Get Your Auth Code
+Visit:
+```
+GET /auth-url
+```
+Use the returned URL to log in → copy the `auth_code` param → paste into `.env` as `FYERS_AUTH_CODE`.
+
+### ☁️ Step 4: Deploy to Cloud Run
+```bash
+gcloud builds submit --config cloudbuild.yaml
+```
+Use the generated URL as your webhook endpoint in TradingView.
+
+## 📬 Sample TradingView Webhook
+```json
 {
-  "token": "your_secret_token",
-  "index": "NIFTY",
-  "option_type": "CE",
-  "qty": 50,
-  "action": "BUY"
+  "token": "<secretToken>",
+  "symbol": "NIFTY", 
+  "strikeprice": 23000,
+  "optionType": "PE",
+  "action": "SELL",
+  "expiry": "WEEKLY"
 }
 ```
-# rebuild
-# rebuild
+
+## 📦 Endpoints
+- `POST /webhook` → Execute trade based on alert
+- `GET /auth-url` → Get Fyers login URL
+- `POST /refresh-token` → Refresh expired token
+- `GET /readyz` → Health check
+
+## 🧪 Testing
+```bash
+pytest tests/
+```
+Covers: token management, webhook, utils, expiry detection
