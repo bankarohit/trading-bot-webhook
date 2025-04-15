@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify
 import os
 from app.fyers_api import get_ltp, place_order
 from app.utils import log_trade_to_sheet
-from app.auth import get_fyers, refresh_access_token, get_auth_code_url
+from app.auth import get_fyers, get_auth_code_url, get_access_token, refresh_token
 from app.utils import get_symbol_from_csv
 import traceback
 
@@ -11,16 +11,22 @@ webhook_bp = Blueprint("webhook", __name__)
 
 @webhook_bp.route("/readyz", methods=["GET"])
 def health_check():
-    return jsonify({"status": "ok"}), 200
+    try:
+        token = get_access_token()
+        if not token:
+            raise Exception("Access token unavailable")
+        return jsonify({"status": "ok", "token_status": "active"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @webhook_bp.route("/refresh-token", methods=["POST"])
 def refresh_token():
     try:
-        token = refresh_access_token()
+        token = refresh_token()
         if token:
             return jsonify({"success": True, "message": "Token refreshed"}), 200
         print("[ERROR] Token refresh returned None")
-        return jsonify({"success": False, "message": "Failed to refresh token"}), 500
+        return jsonify({"success": False, "message": "Failed to refresh token"}), 502
     except Exception as e:
         traceback.print_exc()
         print(f"[FATAL] Error refreshing token: {str(e)}")
