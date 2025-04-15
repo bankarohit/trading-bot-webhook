@@ -21,8 +21,8 @@ def place_order(symbol, qty, action, sl, tp, productType, fyersModelInstance):
         "validity": "DAY",
         "disclosedQty": 0,
         "offlineOrder": False,
-        "stopLoss": sl or 0,
-        "takeProfit": tp or 0
+        "stopLoss": 1, # random value for testing
+        "takeProfit": 2  # random value for testing
     }
     try:
         print("[DEBUG] Placing order with data:", order_data)
