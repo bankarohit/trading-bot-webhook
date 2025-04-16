@@ -8,8 +8,11 @@ import pandas as pd
 import re, uuid, time
 import threading
 import traceback
+import pytz
 
 lock = threading.Lock()
+
+tz = pytz.timezone("Asia/Kolkata")
 
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 CREDS_FILE = "/secrets/service_account.json"
@@ -41,7 +44,7 @@ def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
         df = df[df['underlying_symbol'].str.upper() == symbol.upper()]
         df = df[df['strike_price'].astype(float).round() == round(float(strike_price))]
         df = df[df['option_type'].str.upper() == option_type.upper()]
-        today = pd.Timestamp.now().normalize()
+        today = pd.Timestamp.now(tz).normalize()
         df['expiry_date'] = pd.to_datetime(df['expiry_date'], unit='s', errors='coerce')
         df = df.dropna(subset=['expiry_date'])
         df = df[df['expiry_date'].dt.normalize() >= today]
@@ -81,7 +84,7 @@ def log_trade_to_sheet(symbol, action, qty, ltp, sl = 30, tp = 60):
         client = get_sheet_client()
         sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Trades")
         unique_id = str(uuid.uuid4())
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
         row = [unique_id, now, symbol, action, qty, ltp, sl, tp, "OPEN", "", "", ""]
         sheet.append_row(row)
         return True
@@ -112,7 +115,7 @@ def update_trade_status_in_sheet(trade, status, exit_price):
                 all_rows = sheet.get_all_values()
                 for idx, row in enumerate(all_rows):
                     if row[0] == trade[0]:
-                        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
                         sheet.update_cell(idx + 1, 9, status)  # status
                         sheet.update_cell(idx + 1, 10, exit_price)  # exit price
                         sheet.update_cell(idx + 1, 11, now)  # exit time

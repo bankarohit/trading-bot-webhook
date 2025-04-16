@@ -8,6 +8,9 @@ from app.utils import get_open_trades_from_sheet, update_trade_status_in_sheet
 from app.fyers_api import get_ltp
 import traceback
 import os
+import pytz
+
+tz = pytz.timezone("Asia/Kolkata")
 result_queue = Queue()
 polling_interval = int(os.getenv("POLLING_INTERVAL", 30))
 
@@ -51,7 +54,7 @@ class MonitorThread(threading.Thread):
     def run(self):
         try:
             while True:
-                now = datetime.now().time()
+                now = datetime.now(tz).time()
                 ltp = get_ltp(self.symbol, self.fyers)
                 if not isinstance(ltp, (float, int)):
                     continue
