@@ -46,6 +46,7 @@ def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
         df = df[df['option_type'].str.upper() == option_type.upper()]
         today = pd.Timestamp.now(tz).normalize()
         df['expiry_date'] = pd.to_datetime(df['expiry_date'], unit='s', errors='coerce')
+        df['expiry_date'] = df['expiry_date'].dt.tz_localize('UTC').dt.tz_convert(tz)
         df = df.dropna(subset=['expiry_date'])
         df = df[df['expiry_date'].dt.normalize() >= today]
         expiry = None
@@ -106,7 +107,7 @@ def get_open_trades_from_sheet():
             time.sleep(2)
     return []
 
-def update_trade_status_in_sheet(trade, status, exit_price):
+def update_trade_status_in_sheet(trade, status, exit_price, reason):
     for attempt in range(3):
         try:
             with lock:

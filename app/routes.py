@@ -5,6 +5,7 @@ from app.utils import log_trade_to_sheet, get_symbol_from_csv
 from app.auth import get_fyers, get_auth_code_url, get_access_token, refresh_token
 import traceback
 import os
+import math
 
 webhook_bp = Blueprint("webhook", __name__)
 
@@ -77,8 +78,8 @@ def webhook():
             ltp = "N/A"
 
         if  ltp:
-            sl = ltp * .05
-            tp = ltp * .1
+            sl = math.round(ltp * .05)
+            tp = math.round(ltp * .1)
         
         try:
             order_response = place_order(fyers, fyers_symbol, action, qty, sl, tp, productType)
