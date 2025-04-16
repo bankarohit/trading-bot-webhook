@@ -50,10 +50,10 @@ def webhook():
         optionType = data.get("optionType")
         expiry = data.get("expiry")
         action = data.get("action")
-        qty = data.get("qty", 75)
-        sl = data.get("sl", 30)
-        tp = data.get("tp", 60)
-        productType = data.get("productType", "BO")
+        qty = data.get("qty")
+        sl = data.get("sl")
+        tp = data.get("tp")
+        productType = data.get("productType")
 
         if not symbol or not action or not strikeprice or not optionType or not expiry or not token:
             print(f"[ERROR] Missing fields - symbol: {symbol}, action: {action}, strike: {strikeprice}, option_type: {optionType}, expiry: {expiry}, token: {token}")
@@ -81,7 +81,7 @@ def webhook():
             tp = ltp * .1
         
         try:
-            order_response = place_order(fyers_symbol, qty, action, sl, tp, productType, fyers)
+            order_response = place_order(fyers, fyers_symbol, action, qty, sl, tp, productType)
         except Exception as e:
             traceback.print_exc()
             print(f"[ERROR] Failed to place order, {order_response} , {str(e)}")

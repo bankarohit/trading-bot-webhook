@@ -69,7 +69,7 @@ def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
         return None
 
 
-def log_trade_to_sheet(symbol, action, qty, ltp, sl, tp):
+def log_trade_to_sheet(symbol, action, qty, ltp, sl = 30, tp = 60):
     try:
         
         client = get_sheet_client()
