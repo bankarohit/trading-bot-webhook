@@ -70,8 +70,14 @@ def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
 
 
 def log_trade_to_sheet(symbol, action, qty, ltp, sl = 30, tp = 60):
+    if not qty:
+        if symbol.startswith("NSE:NIFTY"):
+            qty = 75 # Lot size of nifty is 75
+        elif symbol.startswith("NSE:BANKNIFTY"):
+            qty = 30 # Lot size of bankNifty is 30
+        else:
+            qty = 1 # Default size for other symbols
     try:
-        
         client = get_sheet_client()
         sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Trades")
         unique_id = str(uuid.uuid4())

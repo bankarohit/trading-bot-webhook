@@ -53,7 +53,7 @@ def webhook():
         qty = data.get("qty")
         sl = data.get("sl")
         tp = data.get("tp")
-        productType = data.get("productType")
+        productType = data.get("productType", "BO")
 
         if not symbol or not action or not strikeprice or not optionType or not expiry or not token:
             print(f"[ERROR] Missing fields - symbol: {symbol}, action: {action}, strike: {strikeprice}, option_type: {optionType}, expiry: {expiry}, token: {token}")
