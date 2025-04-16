@@ -9,6 +9,8 @@ from app.fyers_api import get_ltp
 import traceback
 import os
 import pytz
+from app.config import load_env_variables
+load_env_variables()
 
 tz = pytz.timezone("Asia/Kolkata")
 result_queue = Queue()
@@ -33,9 +35,9 @@ def start_monitoring_service():
             while not result_queue.empty():
                 #TODO : this is only update either SL or TP hit. 
                 #need to add monitor for trades that are closed when opposite signal is received
-                trade, status, ltp = result_queue.get()
-                print(f"[MONITOR] Updating: Trade {trade[0]} status: {status}, LTP: {ltp}")
-                update_trade_status_in_sheet(trade, status, ltp)
+                trade, status, ltp ,reason = result_queue.get()
+                print(f"[MONITOR] Updating: Trade {trade[0]} status: {status}, LTP: {ltp} Reaseon: {reason} ")
+                update_trade_status_in_sheet(trade, status, ltp, reason)
 
         except Exception as e:
             traceback.print_exc()
@@ -55,12 +57,12 @@ class MonitorThread(threading.Thread):
         try:
             while True:
                 now = datetime.now(tz).time()
-                ltp = get_ltp(self.symbol, self.fyers)
+                ltp = get_ltp(self.fyers, self.symbol)
                 if not isinstance(ltp, (float, int)):
                     continue
 
-                sl = float(self.trade[6])
-                tp = float(self.trade[7])
+                sl = float(self.trade[6]) if self.trade[6] else 0.0
+                tp = float(self.trade[7]) if self.trade[7] else 0.0
 
                 if now >= dt_time(15, 25):
                     result_queue.put((self.trade, "CLOSED", ltp, "TIMELY EXIT"))

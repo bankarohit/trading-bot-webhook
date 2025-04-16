@@ -1,7 +1,7 @@
 # ------------------ app/fyers_api.py ------------------
 import traceback
 
-def get_ltp(symbol, fyersModelInstance):
+def get_ltp(fyersModelInstance, symbol):
     try:
         response = fyersModelInstance.quotes({"symbols": symbol})
         return response.get("d", [{}])[0].get("v", {}).get("lp")
@@ -11,7 +11,7 @@ def get_ltp(symbol, fyersModelInstance):
         return {"code": -1, "message": str(e)}
         
 
-def place_order(fyersModelInstance,symbol, action, qty, sl = 30, tp = 60, productType = "BO"):
+def place_order(fyersModelInstance, symbol, action, qty, sl = 30, tp = 60, productType = "BO"):
     if not qty:
         if symbol.startswith("NSE:NIFTY"):
             qty = 75 # Lot size of nifty is 75

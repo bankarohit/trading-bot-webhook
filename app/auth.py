@@ -17,7 +17,7 @@ def get_access_token():
         print("[ERROR] Failed to get access token")
         return None
 
-def refresh_token():
+def refresh_access_token():
     try:
         token = _token_manager.refresh_token()
         if token:

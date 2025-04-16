@@ -120,7 +120,7 @@ def update_trade_status_in_sheet(trade, status, exit_price, reason):
                         sheet.update_cell(idx + 1, 9, status)  # status
                         sheet.update_cell(idx + 1, 10, exit_price)  # exit price
                         sheet.update_cell(idx + 1, 11, now)  # exit time
-                        sheet.update_cell(idx + 1, 12, "AUTO")  # reason
+                        sheet.update_cell(idx + 1, 12, reason)  # reason
                         return
         except Exception as e:
             traceback.print_exc()

@@ -2,7 +2,7 @@
 from flask import Blueprint, request, jsonify
 from app.fyers_api import get_ltp, place_order
 from app.utils import log_trade_to_sheet, get_symbol_from_csv
-from app.auth import get_fyers, get_auth_code_url, get_access_token, refresh_token
+from app.auth import get_fyers, get_auth_code_url, get_access_token, refresh_access_token
 import traceback
 import os
 import math
@@ -22,7 +22,7 @@ def health_check():
 @webhook_bp.route("/refresh-token", methods=["POST"])
 def refresh_token():
     try:
-        token = refresh_token()
+        token = refresh_access_token()
         if token:
             return jsonify({"success": True, "message": "Token refreshed"}), 200
         print("[ERROR] Token refresh returned None")
@@ -71,16 +71,13 @@ def webhook():
             return jsonify({"success": False, "error": "Could not resolve symbol"}), 403
         
         try:
-            ltp = get_ltp(fyers_symbol, fyers)
+            ltp = get_ltp(fyers, fyers_symbol)
+            sl = round(ltp * .05)
+            tp = round(ltp * .1)
         except Exception as e:
             traceback.print_exc()
             print(f"[ERROR] Failed to get LTP for symbol {symbol}: {str(e)}")
             ltp = "N/A"
-
-        if  ltp:
-            sl = math.round(ltp * .05)
-            tp = math.round(ltp * .1)
-        
         try:
             order_response = place_order(fyers, fyers_symbol, action, qty, sl, tp, productType)
         except Exception as e:
@@ -100,4 +97,4 @@ def webhook():
     except Exception as e:
         traceback.print_exc()
         print(f"[FATAL] Unhandled error in webhook: {str(e)}")
-        return jsonify({"success": False, "error": e}), 505
+        return jsonify({"success": False, "error": str(e)}), 505
