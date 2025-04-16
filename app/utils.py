@@ -9,6 +9,8 @@ import re, uuid, time
 import threading
 import traceback
 import pytz
+import requests
+from requests.exceptions import SSLError, ConnectionError
 
 lock = threading.Lock()
 
@@ -73,7 +75,7 @@ def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
         return None
 
 
-def log_trade_to_sheet(symbol, action, qty, ltp, sl = 30, tp = 60):
+def log_trade_to_sheet(gSheetClient, symbol, action, qty, ltp, sl = 30, tp = 60, retries = 3, delay = 2):
     if not qty:
         if symbol.startswith("NSE:NIFTY"):
             qty = 75 # Lot size of nifty is 75
@@ -81,38 +83,42 @@ def log_trade_to_sheet(symbol, action, qty, ltp, sl = 30, tp = 60):
             qty = 30 # Lot size of bankNifty is 30
         else:
             qty = 1 # Default size for other symbols
-    try:
-        client = get_sheet_client()
-        sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Trades")
-        unique_id = str(uuid.uuid4())
-        now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
-        row = [unique_id, now, symbol, action, qty, ltp, sl, tp, "OPEN", "", "", ""]
-        sheet.append_row(row)
-        return True
-    except Exception as e:
-        traceback.print_exc()
-        print(f"[ERROR] Failed to log trade to Google Sheet: {str(e)}")
+    for attempt in range(retries):
+        try:
+            sheet = gSheetClient.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Trades")
+            unique_id = str(uuid.uuid4())
+            now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+            row = [unique_id, now, symbol, action, qty, ltp, sl, tp, "OPEN", "", "", ""]
+            sheet.append_row(row)
+            return True
+        except (SSLError, ConnectionError, requests.exceptions.RequestException) as e:
+            print(f"[WARN] GSheet connection error (attempt {attempt + 1}/{retries}): {e}")
+            time.sleep(delay)
+        except Exception as e:
+            print(f"[ERROR] Unexpected error accessing Google Sheet: {e}")
+            break
         return False
     
-def get_open_trades_from_sheet():
-    for attempt in range(3):
+def get_open_trades_from_sheet(gSheetClient, retries = 3, delay = 2):
+    for attempt in range(retries):
         try:
-            client = get_sheet_client()
-            sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Trades")
+            sheet = gSheetClient.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Trades")
             rows = sheet.get_all_values()
-            return [row for row in rows[1:] if row[8] == "OPEN"]  # assuming row[8] is status now
+            return [row for row in rows[1:] if len(row) >= 9 and row[8] == "OPEN"]
+        except (SSLError, ConnectionError, requests.exceptions.RequestException) as e:
+            print(f"[WARN] GSheet connection error (attempt {attempt + 1}/{retries}): {e}")
+            time.sleep(delay)
         except Exception as e:
-            traceback.print_exc()
-            print(f"[RETRY {attempt+1}] Failed to fetch open trades: {e}")
-            time.sleep(2)
+            print(f"[ERROR] Unexpected error accessing Google Sheet: {e}")
+            break
+    print("[ERROR] Failed to connect to Google Sheet after retries.")
     return []
 
-def update_trade_status_in_sheet(trade, status, exit_price, reason):
-    for attempt in range(3):
+def update_trade_status_in_sheet(gSheetClient, trade, status, exit_price, reason, retries = 3, delay = 2):
+    for attempt in range(retries):
         try:
             with lock:
-                client = get_sheet_client()
-                sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Trades")
+                sheet = gSheetClient.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Trades")
                 all_rows = sheet.get_all_values()
                 for idx, row in enumerate(all_rows):
                     if row[0] == trade[0]:
@@ -122,6 +128,9 @@ def update_trade_status_in_sheet(trade, status, exit_price, reason):
                         sheet.update_cell(idx + 1, 11, now)  # exit time
                         sheet.update_cell(idx + 1, 12, reason)  # reason
                         return
+        except (SSLError, ConnectionError, requests.exceptions.RequestException) as e:
+            print(f"[WARN] GSheet connection error (attempt {attempt + 1}/{retries}): {e}")
+            time.sleep(delay)
         except Exception as e:
             traceback.print_exc()
             print(f"[RETRY {attempt+1}] Failed to update trade status: {e}")

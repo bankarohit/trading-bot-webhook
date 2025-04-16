@@ -1,7 +1,7 @@
 # ------------------ app/routes.py ------------------
 from flask import Blueprint, request, jsonify
 from app.fyers_api import get_ltp, place_order
-from app.utils import log_trade_to_sheet, get_symbol_from_csv
+from app.utils import log_trade_to_sheet, get_symbol_from_csv, get_sheet_client
 from app.auth import get_fyers, get_auth_code_url, get_access_token, refresh_access_token
 import traceback
 import os
@@ -65,6 +65,7 @@ def webhook():
             return jsonify({"success": False, "error": "Unauthorized"}), 402
         
         fyers = get_fyers()
+        gSheetClient = get_sheet_client()
         fyers_symbol = get_symbol_from_csv(symbol, strikeprice, optionType, expiry)
         
         if not fyers_symbol:
@@ -85,9 +86,7 @@ def webhook():
             print(f"[ERROR] Failed to place order, {order_response} , {str(e)}")
 
         try:
-            #TODO: qty may be different from the one in place_order
-            # need to verify later.
-            gSheetresponse = log_trade_to_sheet(fyers_symbol, action, qty, ltp, sl, tp)
+            gSheetresponse = log_trade_to_sheet(gSheetClient, fyers_symbol, action, qty, ltp, sl, tp)
         except Exception as e:
             traceback.print_exc()
             print(f"[ERROR] Failed to log trade to sheet: {str(e)}")

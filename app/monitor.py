@@ -4,14 +4,15 @@ import threading
 from datetime import datetime, time as dt_time
 from queue import Queue
 from app.auth import get_fyers
+from app.utils import get_sheet_client
 from app.utils import get_open_trades_from_sheet, update_trade_status_in_sheet
 from app.fyers_api import get_ltp
 import traceback
 import os
 import pytz
 from app.config import load_env_variables
-load_env_variables()
 
+load_env_variables()
 tz = pytz.timezone("Asia/Kolkata")
 result_queue = Queue()
 polling_interval = int(os.getenv("POLLING_INTERVAL", 30))
@@ -21,7 +22,7 @@ def start_monitoring_service():
     while True:
         try:
             print("[MONITOR] Fetching open trades")
-            open_trades = get_open_trades_from_sheet()
+            open_trades = get_open_trades_from_sheet(get_sheet_client())
             print(f"[MONITOR] Open trades: {open_trades}")
             for trade in open_trades:
                 trade_id = trade[0]  # unique ID
@@ -37,7 +38,7 @@ def start_monitoring_service():
                 #need to add monitor for trades that are closed when opposite signal is received
                 trade, status, ltp ,reason = result_queue.get()
                 print(f"[MONITOR] Updating: Trade {trade[0]} status: {status}, LTP: {ltp} Reaseon: {reason} ")
-                update_trade_status_in_sheet(trade, status, ltp, reason)
+                update_trade_status_in_sheet(get_sheet_client(),trade, status, ltp, reason)
 
         except Exception as e:
             traceback.print_exc()
