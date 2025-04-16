@@ -7,3 +7,6 @@ fyers-apiv3
 pytest
 pytest-mock
 pandas
+docker
+gcloud
+yapf
