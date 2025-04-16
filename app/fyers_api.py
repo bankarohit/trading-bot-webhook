@@ -11,7 +11,7 @@ def get_ltp(symbol, fyersModelInstance):
         return {"code": -1, "message": str(e)}
         
 
-def place_order(symbol, qty, action, fyersModelInstance, sl = 1, tp = 2, productType = "BO"):
+def place_order(symbol, qty, action, fyersModelInstance, sl = 1, tp = 2, productType):
     if not qty:
         if symbol.startswith("NSE:NIFTY"):
             qty = 75 # Lot size of nifty is 75

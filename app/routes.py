@@ -53,7 +53,7 @@ def webhook():
         qty = data.get("qty", 75)
         sl = data.get("sl", 1)
         tp = data.get("tp", 2)
-        productType = data.get("productType", "INTRADAY")
+        productType = data.get("productType", "BO")
 
         if not symbol or not action or not strikeprice or not optionType or not expiry or not token:
             print(f"[ERROR] Missing fields - symbol: {symbol}, action: {action}, strike: {strikeprice}, option_type: {optionType}, expiry: {expiry}, token: {token}")
@@ -76,6 +76,8 @@ def webhook():
             print(f"[ERROR] Failed to get LTP for symbol {symbol}: {str(e)}")
             ltp = "N/A"
 
+        sl = ltp * .05
+        tp = ltp * .1
         try:
             order_response = place_order(fyers_symbol, qty, action, fyers, sl, tp, productType)
         except Exception as e:
