@@ -51,8 +51,8 @@ def webhook():
         expiry = data.get("expiry")
         action = data.get("action")
         qty = data.get("qty", 75)
-        sl = data.get("sl", 1)
-        tp = data.get("tp", 2)
+        sl = data.get("sl", 30)
+        tp = data.get("tp", 60)
         productType = data.get("productType", "BO")
 
         if not symbol or not action or not strikeprice or not optionType or not expiry or not token:
@@ -76,10 +76,12 @@ def webhook():
             print(f"[ERROR] Failed to get LTP for symbol {symbol}: {str(e)}")
             ltp = "N/A"
 
-        sl = ltp * .05
-        tp = ltp * .1
+        if  ltp:
+            sl = ltp * .05
+            tp = ltp * .1
+        
         try:
-            order_response = place_order(fyers_symbol, qty, action, fyers, sl, tp, productType)
+            order_response = place_order(fyers_symbol, qty, action, sl, tp, productType, fyers)
         except Exception as e:
             traceback.print_exc()
             print(f"[ERROR] Failed to place order, {order_response} , {str(e)}")
