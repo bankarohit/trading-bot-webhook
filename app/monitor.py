@@ -63,22 +63,22 @@ class MonitorThread(threading.Thread):
                 tp = float(self.trade[7])
 
                 if now >= dt_time(15, 25):
-                    result_queue.put((self.trade, "TIME EXIT", ltp))
+                    result_queue.put((self.trade, "CLOSED", ltp, "TIMELY EXIT"))
                     break
 
                 if self.action == "BUY":
                     if ltp <= sl:
-                        result_queue.put((self.trade, "STOPLOSS HIT", ltp))
+                        result_queue.put((self.trade, "CLOSED", ltp, "SL"))
                         break
                     elif ltp >= tp:
-                        result_queue.put((self.trade, "TARGET HIT", ltp))
+                        result_queue.put((self.trade, "CLOSED", ltp, "TP"))
                         break
                 elif self.action == "SELL":
                     if ltp >= sl:
-                        result_queue.put((self.trade, "STOPLOSS HIT", ltp))
+                        result_queue.put((self.trade, "CLOSED", ltp, "SL"))
                         break
                     elif ltp <= tp:
-                        result_queue.put((self.trade, "TARGET HIT", ltp))
+                        result_queue.put((self.trade, "CLOSED", ltp, "TP"))
                         break
                 time.sleep(polling_interval)
         except Exception as e:
