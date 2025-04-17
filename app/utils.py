@@ -83,11 +83,9 @@ def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
         logger.error(f"Exception in get_symbol_from_csv: {str(e)}")
         return None
 
-def log_trade_to_sheet(symbol, action, qty, ltp, sl, tp, sheet_name="Trades", retries=3):
+def log_trade_to_sheet(_client, symbol, action, qty, ltp, sl, tp, sheet_name="Trades", retries=3):
     try:
-        client = get_gsheet_client()
-        sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet(sheet_name)
-
+        sheet = _client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet(sheet_name)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         row = [now, symbol, action, qty, ltp, sl, tp, "OPEN", "", "", ""]
 
@@ -106,24 +104,21 @@ def log_trade_to_sheet(symbol, action, qty, ltp, sl, tp, sheet_name="Trades", re
         logger.error(f"Failed to log trade to Google Sheet: {str(e)}")
         return False
 
-def get_open_trades_from_sheet(sheet_name="Trades"):
+def get_open_trades_from_sheet(_client, sheet_name="Trades"):
     try:
-        client = get_gsheet_client()
-        sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet(sheet_name)
+        sheet = _client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet(sheet_name)
         rows = sheet.get_all_values()
         open_trades = [row for row in rows[1:] if len(row) >= 9 and row[8] == "OPEN"]
         logger.debug(f"Fetched {len(open_trades)} open trades")
         return open_trades
     except Exception as e:
-        logger.error(f"Failed to fetch open trades: {str(e)}")
+        logger.exception("Failed to fetch open trades")
         return []
 
-def update_trade_status_in_sheet(trade_id, status, exit_price, reason="", sheet_name="Trades"):
+def update_trade_status_in_sheet(_client, trade_id, status, exit_price, reason="", sheet_name="Trades"):
     try:
-        client = get_gsheet_client()
-        sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet(sheet_name)
+        sheet = _client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet(sheet_name)
         rows = sheet.get_all_values()
-
         for idx, row in enumerate(rows[1:], start=2):  # skip header row
             if row[0] == trade_id:  # assume unique timestamp as ID
                 sheet.update_cell(idx, 9, status)  # column I (9th) - status
@@ -132,7 +127,6 @@ def update_trade_status_in_sheet(trade_id, status, exit_price, reason="", sheet_
                 sheet.update_cell(idx, 12, reason)  # column L (12th) - reason  # column J (10th) - exit price
                 logger.debug(f"Updated trade {trade_id} with status={status}, exit_price={exit_price}")
                 return True
-
         logger.warning(f"Trade ID {trade_id} not found for update.")
         return False
     except Exception as e:
