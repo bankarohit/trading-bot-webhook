@@ -97,7 +97,7 @@ class TokenManager:
         refresh_token = self._tokens.get("refresh_token")
         if not refresh_token or not FYERS_PIN:
             logger.error("Missing refresh_token or FYERS_PIN")
-            raise RefreshTokenError("Cannot refresh token — missing refresh_token or pin")
+            return None
 
         try:
             app_hash = hashlib.sha256(f"{APP_ID}:{SECRET_ID}".encode()).hexdigest()
