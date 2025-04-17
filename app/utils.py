@@ -1,26 +1,18 @@
 # ------------------ app/utils.py ------------------
 from datetime import datetime
-from app.auth import get_access_token
+import math
 import os
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
-import re, uuid, time
-import threading
-import traceback
-import pytz
-import requests
-from requests.exceptions import SSLError, ConnectionError
+import re
+import time
+import gspread
+import logging
+from oauth2client.service_account import ServiceAccountCredentials
+from google.auth.exceptions import TransportError
 
-lock = threading.Lock()
-
-tz = pytz.timezone("Asia/Kolkata")
-
-SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-CREDS_FILE = "/secrets/service_account.json"
+logger = logging.getLogger(__name__)
 
 symbol_master_url = "https://public.fyers.in/sym_details/NSE_FO.csv"
-
 symbol_master_columns = [
     "fytoken", "symbol_details", "exchange_instrument_type", "lot_size",
     "tick_size", "isin", "trading_session", "last_update", "expiry_date",
@@ -29,109 +21,120 @@ symbol_master_columns = [
     "option_type", "underlying_fytoken", "reserved_1", "reserved_2", "reserved_3"
 ]
 
-_gspread_client = None
+SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+CREDS_FILE = "/secrets/service_account.json"
 
-def get_sheet_client():
-    global _gspread_client
-    if _gspread_client is None:
-        print("[DEBUG] Initializing gspread client")
+_symbol_cache = None
+_gsheet_client = None
+
+def get_gsheet_client():
+    global _gsheet_client
+    if _gsheet_client is None:
         creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
-        _gspread_client = gspread.authorize(creds)
-    return _gspread_client
+        _gsheet_client = gspread.authorize(creds)
+    return _gsheet_client
+
+def load_symbol_master():
+    global _symbol_cache
+    try:
+        _symbol_cache = pd.read_csv(symbol_master_url, header=None, names=symbol_master_columns)
+        logger.debug("Loaded symbol master into memory")
+    except Exception as e:
+        logger.error(f"Failed to load symbol master: {str(e)}")
+        _symbol_cache = pd.DataFrame(columns=symbol_master_columns)
 
 def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
+    global _symbol_cache
     try:
-        print(f"[DEBUG] Requested: symbol={symbol.upper()}, strike_price={round(float(strike_price))}, option_type={option_type.upper()}, expiry_type={expiry_type}")
-        df = pd.read_csv(symbol_master_url, header=None, names=symbol_master_columns)
+        logger.debug(f"Requested: symbol={symbol.upper()}, strike_price={round(float(strike_price))}, option_type={option_type.upper()}, expiry_type={expiry_type}")
+
+        if _symbol_cache is None:
+            load_symbol_master()
+
+        df = _symbol_cache.copy()
         df = df[df['underlying_symbol'].str.upper() == symbol.upper()]
         df = df[df['strike_price'].astype(float).round() == round(float(strike_price))]
         df = df[df['option_type'].str.upper() == option_type.upper()]
-        today = pd.Timestamp.now(tz).normalize()
+        today = pd.Timestamp.now().normalize()
         df['expiry_date'] = pd.to_datetime(df['expiry_date'], unit='s', errors='coerce')
-        df['expiry_date'] = df['expiry_date'].dt.tz_localize('UTC').dt.tz_convert(tz)
         df = df.dropna(subset=['expiry_date'])
         df = df[df['expiry_date'].dt.normalize() >= today]
+
         expiry = None
         if expiry_type.upper() == "WEEKLY":
             df = df.sort_values('expiry_date')
             expiry = df.iloc[0]['expiry_date'] if not df.empty else None
-            print(f"[DEBUG] Chosen weekly expiry: {expiry}")
+            logger.debug(f"Chosen weekly expiry: {expiry}")
         elif expiry_type.upper() == "MONTHLY":
-            # Match symbols like NIFTY25APR, BANKNIFTY26JAN etc.
             monthly_pattern = re.compile(rf"{symbol.upper()}\d{{2}}[A-Z]{{3}}")
             df = df[df['symbol_ticker'].str.contains(monthly_pattern)]
             df = df.sort_values('expiry_date')
             expiry = df.iloc[0]['expiry_date'] if not df.empty else None
-            print(f"[DEBUG] Chosen monthly expiry: {expiry}")
+            logger.debug(f"Chosen monthly expiry: {expiry}")
         else:
             return None
+
         result = df[df['expiry_date'] == expiry]
         fyersTickerSymbol = result.iloc[0]['symbol_ticker'] if not result.empty else None
-        print(f"FyersTickerSYmbol: {fyersTickerSymbol}")
+        logger.debug(f"FyersTickerSymbol: {fyersTickerSymbol}")
         return fyersTickerSymbol
+
     except Exception as e:
-        traceback.print_exc()
-        print(f"[ERROR] Exception in get_symbol_from_csv: {str(e)}")
+        logger.error(f"Exception in get_symbol_from_csv: {str(e)}")
         return None
 
+def log_trade_to_sheet(symbol, action, qty, ltp, sl, tp, sheet_name="Trades", retries=3):
+    try:
+        client = get_gsheet_client()
+        sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet(sheet_name)
 
-def log_trade_to_sheet(gSheetClient, symbol, action, qty, ltp, sl = 30, tp = 60, retries = 3, delay = 2):
-    if not qty:
-        if symbol.startswith("NSE:NIFTY"):
-            qty = 75 # Lot size of nifty is 75
-        elif symbol.startswith("NSE:BANKNIFTY"):
-            qty = 30 # Lot size of bankNifty is 30
-        else:
-            qty = 1 # Default size for other symbols
-    for attempt in range(retries):
-        try:
-            sheet = gSheetClient.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Trades")
-            unique_id = str(uuid.uuid4())
-            now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
-            row = [unique_id, now, symbol, action, qty, ltp, sl, tp, "OPEN", "", "", ""]
-            sheet.append_row(row)
-            return True
-        except (SSLError, ConnectionError, requests.exceptions.RequestException) as e:
-            print(f"[WARN] GSheet connection error (attempt {attempt + 1}/{retries}): {e}")
-            time.sleep(delay)
-        except Exception as e:
-            print(f"[ERROR] Unexpected error accessing Google Sheet: {e}")
-            break
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        row = [now, symbol, action, qty, ltp, sl, tp, "OPEN", "", "", ""]
+
+        for attempt in range(retries):
+            try:
+                sheet.append_row(row)
+                return True
+            except (gspread.exceptions.APIError, TransportError) as retryable:
+                logger.warning(f"Retry {attempt+1}/{retries} - Failed to log trade: {retryable}")
+                time.sleep(2 ** attempt)
+
+        logger.error("Max retries reached. Could not log trade.")
         return False
-    
-def get_open_trades_from_sheet(gSheetClient, retries = 3, delay = 2):
-    for attempt in range(retries):
-        try:
-            sheet = gSheetClient.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Trades")
-            rows = sheet.get_all_values()
-            return [row for row in rows[1:] if len(row) >= 9 and row[8] == "OPEN"]
-        except (SSLError, ConnectionError, requests.exceptions.RequestException) as e:
-            print(f"[WARN] GSheet connection error (attempt {attempt + 1}/{retries}): {e}")
-            time.sleep(delay)
-        except Exception as e:
-            print(f"[ERROR] Unexpected error accessing Google Sheet: {e}")
-            break
-    print("[ERROR] Failed to connect to Google Sheet after retries.")
-    return []
 
-def update_trade_status_in_sheet(gSheetClient, trade, status, exit_price, reason, retries = 3, delay = 2):
-    for attempt in range(retries):
-        try:
-            with lock:
-                sheet = gSheetClient.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet("Trades")
-                all_rows = sheet.get_all_values()
-                for idx, row in enumerate(all_rows):
-                    if row[0] == trade[0]:
-                        now = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
-                        sheet.update_cell(idx + 1, 9, status)  # status
-                        sheet.update_cell(idx + 1, 10, exit_price)  # exit price
-                        sheet.update_cell(idx + 1, 11, now)  # exit time
-                        sheet.update_cell(idx + 1, 12, reason)  # reason
-                        return
-        except (SSLError, ConnectionError, requests.exceptions.RequestException) as e:
-            print(f"[WARN] GSheet connection error (attempt {attempt + 1}/{retries}): {e}")
-            time.sleep(delay)
-        except Exception as e:
-            traceback.print_exc()
-            print(f"[RETRY {attempt+1}] Failed to update trade status: {e}")
-            time.sleep(2)
+    except Exception as e:
+        logger.error(f"Failed to log trade to Google Sheet: {str(e)}")
+        return False
+
+def get_open_trades_from_sheet(sheet_name="Trades"):
+    try:
+        client = get_gsheet_client()
+        sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet(sheet_name)
+        rows = sheet.get_all_values()
+        open_trades = [row for row in rows[1:] if len(row) >= 9 and row[8] == "OPEN"]
+        logger.debug(f"Fetched {len(open_trades)} open trades")
+        return open_trades
+    except Exception as e:
+        logger.error(f"Failed to fetch open trades: {str(e)}")
+        return []
+
+def update_trade_status_in_sheet(trade_id, status, exit_price, reason="", sheet_name="Trades"):
+    try:
+        client = get_gsheet_client()
+        sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet(sheet_name)
+        rows = sheet.get_all_values()
+
+        for idx, row in enumerate(rows[1:], start=2):  # skip header row
+            if row[0] == trade_id:  # assume unique timestamp as ID
+                sheet.update_cell(idx, 9, status)  # column I (9th) - status
+                sheet.update_cell(idx, 11, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))  # column K (11th) - exit time  # column K (11th) - reason  # column I (9th) - status
+                sheet.update_cell(idx, 10, str(exit_price))  # column J (10th) - exit price
+                sheet.update_cell(idx, 12, reason)  # column L (12th) - reason  # column J (10th) - exit price
+                logger.debug(f"Updated trade {trade_id} with status={status}, exit_price={exit_price}")
+                return True
+
+        logger.warning(f"Trade ID {trade_id} not found for update.")
+        return False
+    except Exception as e:
+        logger.error(f"Failed to update trade status: {str(e)}")
+        return False

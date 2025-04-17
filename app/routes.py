@@ -1,11 +1,12 @@
 # ------------------ app/routes.py ------------------
 from flask import Blueprint, request, jsonify
 from app.fyers_api import get_ltp, place_order
-from app.utils import log_trade_to_sheet, get_symbol_from_csv, get_sheet_client
+from app.utils import log_trade_to_sheet, get_symbol_from_csv, get_gsheet_client
 from app.auth import get_fyers, get_auth_code_url, get_access_token, refresh_access_token
-import traceback
 import os
-import math
+import logging
+
+logger = logging.getLogger(__name__)
 
 webhook_bp = Blueprint("webhook", __name__)
 
@@ -17,6 +18,7 @@ def health_check():
             raise Exception("Access token unavailable")
         return jsonify({"status": "ok", "token_status": "active"}), 200
     except Exception as e:
+        logger.error(f"Health check failed: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @webhook_bp.route("/refresh-token", methods=["POST"])
@@ -25,13 +27,12 @@ def refresh_token():
         token = refresh_access_token()
         if token:
             return jsonify({"success": True, "message": "Token refreshed"}), 200
-        print("[ERROR] Token refresh returned None")
+        logger.error("Token refresh returned None")
         return jsonify({"success": False, "message": "Failed to refresh token"}), 501
     except Exception as e:
-        traceback.print_exc()
-        print(f"[FATAL] Error refreshing token: {str(e)}")
+        logger.exception(f"Error refreshing token: {e}")
         return jsonify({"success": False, "message": "Internal server error"}), 502
-    
+
 @webhook_bp.route("/auth-url", methods=["GET"])
 def get_auth_url():
     url = get_auth_code_url()
@@ -57,43 +58,43 @@ def webhook():
         productType = data.get("productType", "BO")
 
         if not symbol or not action or not strikeprice or not optionType or not expiry or not token:
-            print(f"[ERROR] Missing fields - symbol: {symbol}, action: {action}, strike: {strikeprice}, option_type: {optionType}, expiry: {expiry}, token: {token}")
+            logger.error(f"Missing fields - symbol: {symbol}, action: {action}, strike: {strikeprice}, option_type: {optionType}, expiry: {expiry}, token: {token}")
             return jsonify({"success": False, "error": "Missing required fields"}), 401
 
         if token != os.getenv("WEBHOOK_SECRET_TOKEN"):
-            print(f"[ERROR] Unauthorized access from IP: {request.remote_addr}. Token provided: {token}")
+            logger.error(f"Unauthorized access from IP: {request.remote_addr}. Token provided: {token}")
             return jsonify({"success": False, "error": "Unauthorized"}), 402
-        
-        fyers = get_fyers()
-        gSheetClient = get_sheet_client()
+
         fyers_symbol = get_symbol_from_csv(symbol, strikeprice, optionType, expiry)
-        
+
         if not fyers_symbol:
             return jsonify({"success": False, "error": "Could not resolve symbol"}), 403
-        
+
         try:
-            ltp = get_ltp(fyers, fyers_symbol)
-            sl = round(ltp * .05)
-            tp = round(ltp * .1)
+            fyers = get_fyers()
+            ltp = get_ltp(fyers_symbol, fyers)
+            if ltp is not None:
+                sl = round(ltp * 0.05)
+                tp = round(ltp * 0.1)
+            else:
+                logger.warning(f"LTP returned None for symbol {fyers_symbol}, using default SL/TP from fyers_api")
+                sl = None
+                tp = None
         except Exception as e:
-            traceback.print_exc()
-            print(f"[ERROR] Failed to get LTP for symbol {symbol}: {str(e)}")
+            logger.exception(f"Failed to get LTP for symbol {symbol}: {e}")
             ltp = "N/A"
-        try:
-            order_response = place_order(fyers, fyers_symbol, action, qty, sl, tp, productType)
-        except Exception as e:
-            traceback.print_exc()
-            print(f"[ERROR] Failed to place order, {order_response} , {str(e)}")
+            sl = None
+            tp = None
 
         try:
-            gSheetresponse = log_trade_to_sheet(gSheetClient, fyers_symbol, action, qty, ltp, sl, tp)
+            order_response = place_order(fyers_symbol, qty, action, sl, tp, productType, fyers)
         except Exception as e:
-            traceback.print_exc()
-            print(f"[ERROR] Failed to log trade to sheet: {str(e)}")
+            order_response = {"code": -1, "message": str(e)}
+            logger.exception(f"Failed to place order: {order_response}")
 
-        return jsonify({"success": True, "message": "Trade logged and order placed", "ltp": ltp, "order_response": order_response, "gSheetresponse": gSheetresponse}), 200
+        logger.info(f"Order placed for {symbol} [{action}] with qty={qty}, sl={sl}, tp={tp}")
+        return jsonify({"success": True, "message": "order placed", "order_response": order_response}), 200
 
     except Exception as e:
-        traceback.print_exc()
-        print(f"[FATAL] Unhandled error in webhook: {str(e)}")
+        logger.exception(f"Unhandled error in webhook: {e}")
         return jsonify({"success": False, "error": str(e)}), 505

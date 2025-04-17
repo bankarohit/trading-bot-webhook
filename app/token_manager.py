@@ -3,7 +3,11 @@ import os
 import json
 import hashlib
 import requests
+import logging
+from datetime import datetime, timedelta
 from fyers_apiv3 import fyersModel
+
+logger = logging.getLogger(__name__)
 
 APP_ID = os.getenv("FYERS_APP_ID")
 SECRET_ID = os.getenv("FYERS_SECRET_ID")
@@ -13,6 +17,15 @@ FYERS_PIN = os.getenv("FYERS_PIN")
 TOKENS_FILE = "tokens.json"
 
 _token_manager_instance = None
+
+class TokenManagerException(Exception):
+    pass
+
+class AuthCodeMissingError(TokenManagerException):
+    pass
+
+class RefreshTokenError(TokenManagerException):
+    pass
 
 def get_token_manager():
     global _token_manager_instance
@@ -33,16 +46,16 @@ class TokenManager:
                 with open(self.tokens_file, "r") as f:
                     return json.load(f)
         except Exception as e:
-            print(f"[TokenManager] Failed to load tokens: {e}")
+            logger.error("Failed to load tokens: %s", e)
         return {}
 
     def _save_tokens(self):
         try:
             with open(self.tokens_file, "w") as f:
                 json.dump(self._tokens, f)
-            print("[TokenManager] Tokens saved.")
+            logger.info("Tokens saved.")
         except Exception as e:
-            print(f"[TokenManager] Failed to save tokens: {e}")
+            logger.error("Failed to save tokens: %s", e)
 
     def _init_session_model(self):
         return fyersModel.SessionModel(
@@ -65,9 +78,8 @@ class TokenManager:
 
     def generate_token(self):
         if not AUTH_CODE:
-            print("[TokenManager] Missing AUTH_CODE")
-            print(self.get_auth_code_url())
-            return None
+            logger.error("Missing AUTH_CODE. Visit the auth URL to obtain it.")
+            raise AuthCodeMissingError("FYERS_AUTH_CODE not set in environment")
 
         self._session.set_token(AUTH_CODE)
         try:
@@ -76,15 +88,16 @@ class TokenManager:
                 self._tokens = response
                 self._save_tokens()
                 return response["access_token"]
+            logger.error("Token generation failed: %s", response)
         except Exception as e:
-            print(f"[TokenManager] Token generation error: {e}")
+            logger.exception("Token generation error: %s", e)
         return None
 
     def refresh_token(self):
         refresh_token = self._tokens.get("refresh_token")
         if not refresh_token or not FYERS_PIN:
-            print("[TokenManager] Cannot refresh token — missing refresh_token or pin")
-            return None
+            logger.error("Missing refresh_token or FYERS_PIN")
+            raise RefreshTokenError("Cannot refresh token — missing refresh_token or pin")
 
         try:
             app_hash = hashlib.sha256(f"{APP_ID}:{SECRET_ID}".encode()).hexdigest()
@@ -101,10 +114,12 @@ class TokenManager:
             if response.get("s") == "ok" and "access_token" in response:
                 self._tokens["access_token"] = response["access_token"]
                 self._save_tokens()
-                self._fyers = None  # Invalidate fyers instance if token changes
+                self._fyers = None  # Invalidate fyers instance
+                logger.info("Access token refreshed successfully.")
                 return response["access_token"]
+            logger.error("Token refresh failed: %s", response)
         except Exception as e:
-            print(f"[TokenManager] Refresh error: {e}")
+            logger.exception("Refresh token error: %s", e)
         return None
 
     def get_fyers_client(self):
