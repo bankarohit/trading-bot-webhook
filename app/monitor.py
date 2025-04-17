@@ -70,17 +70,17 @@ class MonitorThread(threading.Thread):
                     break
 
                 if self.action == "BUY":
-                    if ltp <= sl:
+                    if ltp <= self.trade[5] - sl:
                         result_queue.put((self.trade, "CLOSED", ltp, "SL"))
                         break
-                    elif ltp >= tp:
+                    elif ltp >= self.trade[5] + tp:
                         result_queue.put((self.trade, "CLOSED", ltp, "TP"))
                         break
                 elif self.action == "SELL":
-                    if ltp >= sl:
+                    if ltp >= self.trade[5] + sl:
                         result_queue.put((self.trade, "CLOSED", ltp, "SL"))
                         break
-                    elif ltp <= tp:
+                    elif ltp <= self.trade[5] - tp:
                         result_queue.put((self.trade, "CLOSED", ltp, "TP"))
                         break
                 time.sleep(polling_interval)
