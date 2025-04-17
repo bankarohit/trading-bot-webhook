@@ -1,7 +1,7 @@
 # ------------------ main.py ------------------
 from app import create_app
 import threading
-from app.monitor import start_monitoring_service
+# from app.monitor import start_monitoring_service
 from app.config import load_env_variables
 
 load_env_variables()
