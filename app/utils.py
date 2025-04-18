@@ -9,6 +9,9 @@ import gspread
 import logging
 from oauth2client.service_account import ServiceAccountCredentials
 from google.auth.exceptions import TransportError
+import ssl
+import certifi
+import urllib.request
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +25,7 @@ symbol_master_columns = [
 ]
 
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-CREDS_FILE = "/secrets/service_account.json"
+CREDS_FILE = "./secrets/service_account.json"
 
 _symbol_cache = None
 _gsheet_client = None
@@ -37,7 +40,9 @@ def get_gsheet_client():
 def load_symbol_master():
     global _symbol_cache
     try:
-        _symbol_cache = pd.read_csv(symbol_master_url, header=None, names=symbol_master_columns)
+        context = ssl.create_default_context(cafile=certifi.where())
+        with urllib.request.urlopen(symbol_master_url, context=context) as response:
+            _symbol_cache = pd.read_csv(response, header=None, names=symbol_master_columns)
         logger.debug("Loaded symbol master into memory")
     except Exception as e:
         logger.error(f"Failed to load symbol master: {str(e)}")

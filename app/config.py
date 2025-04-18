@@ -8,3 +8,4 @@ def load_env_variables():
     for var in required_vars:
         if not os.getenv(var):
             raise EnvironmentError(f"Missing required environment variable: {var}")
+    

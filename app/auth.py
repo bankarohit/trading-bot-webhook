@@ -1,5 +1,5 @@
 # ------------------ app/auth.py ------------------
-import logging
+import logging , os
 from app.token_manager import get_token_manager, AuthCodeMissingError, RefreshTokenError
 
 logger = logging.getLogger(__name__)
@@ -35,8 +35,18 @@ def refresh_access_token():
         token = _token_manager.refresh_token()
         if token:
             return token
-        logger.error("[AUTH] Token refresh returned None")
-        raise RefreshTokenError("Token refresh failed.")
+        else:
+            logger.error("[AUTH] Refresh token returned None")
     except Exception as e:
         logger.exception("[AUTH] Error refreshing token: %s", e)
         raise
+
+def generate_access_token():
+    try:
+        token = _token_manager.generate_token()
+        if token:
+            return token
+        else:
+            logger.error("[AUTH] Token generation returned None")
+    except Exception as e:
+        logger.exception("[AUTH] Error generating token: %s", e)
