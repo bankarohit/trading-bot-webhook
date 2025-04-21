@@ -32,11 +32,10 @@ def get_access_token():
 
 def refresh_access_token():
     try:
-        token = _token_manager.refresh_token()
-        if token:
-            return token
-        else:
-            logger.error("[AUTH] Refresh token returned None")
+        return _token_manager.refresh_token()
+    except RefreshTokenError as e:
+        logger.error(f"[AUTH] Token refresh failed: {e}")
+        raise  # Propagate so caller knows it's critical
     except Exception as e:
         logger.exception("[AUTH] Error refreshing token: %s", e)
         raise

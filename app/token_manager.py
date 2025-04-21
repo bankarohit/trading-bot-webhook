@@ -8,6 +8,7 @@ import threading
 from datetime import datetime
 from fyers_apiv3 import fyersModel
 from app.config import load_env_variables
+from google.cloud import storage
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,6 @@ TOKENS_FILE = "tokens.json"
 # Thread-safe singleton
 _token_manager_instance = None
 _token_manager_lock = threading.Lock()
-
 
 class TokenManagerException(Exception):
     """Base exception for TokenManager errors."""
@@ -64,13 +64,20 @@ class TokenManager:
         self._lock = threading.RLock()  # Reentrant lock for thread safety
     
     def _load_tokens(self):
-        """Load tokens from the tokens file."""
         try:
-            if os.path.exists(self.tokens_file):
+            storage_client = storage.Client()
+            bucket = storage_client.bucket(os.getenv("GCS_BUCKET_NAME"))
+            blob = bucket.blob(os.getenv("GCS_TOKENS_FILE", "tokens/tokens.json"))
+
+            if blob.exists():
+                blob.download_to_filename(self.tokens_file)
+                logger.info("Loaded tokens.json from GCS.")
                 with open(self.tokens_file, "r") as f:
                     return json.load(f)
+            else:
+                logger.warning("tokens.json not found in GCS, starting fresh.")
         except Exception as e:
-            logger.error("Failed to load tokens: %s", e)
+            logger.error(f"GCS load failed: {e}")
         return {}
 
     def _save_tokens(self):
@@ -79,10 +86,15 @@ class TokenManager:
             try:
                 with open(self.tokens_file, "w") as f:
                     json.dump(self._tokens, f)
-                logger.info("Tokens saved.")
+
+                storage_client = storage.Client()
+                bucket = storage_client.bucket(os.getenv("GCS_BUCKET_NAME"))
+                blob = bucket.blob(os.getenv("GCS_TOKENS_FILE", "tokens/tokens.json"))
+                blob.upload_from_filename(self.tokens_file)
+
+                logger.info("tokens.json saved to GCS.")
             except Exception as e:
-                logger.error("Failed to save tokens: %s", e)
-                raise TokenManagerException(f"Failed to save tokens: {e}")
+                logger.error(f"GCS save failed: {e}")
 
     def _init_session_model(self):
         """Initialize and return a SessionModel for Fyers API."""

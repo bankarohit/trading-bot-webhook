@@ -118,7 +118,7 @@ class TestFyersAPI(unittest.TestCase):
         })
         
         # Patch the global _symbol_cache variable directly
-        with patch('app.fyers_api._symbol_cache', test_df):
+        with patch('app.utils._symbol_cache', test_df):
             # Now when the function runs, it will use our test DataFrame
             # with real pandas operations
             
@@ -130,7 +130,7 @@ class TestFyersAPI(unittest.TestCase):
             qty = _get_default_qty("NSE:RELIANCE-EQ") 
             self.assertEqual(qty, 100)
             
-    @patch('app.fyers_api._symbol_cache')
+    @patch('app.utils._symbol_cache')
     @patch('app.fyers_api.logger')
     def test_get_default_qty_with_invalid_lot_size(self, mock_logger, mock_symbol_cache):
         """Test _get_default_qty with invalid lot size value."""
@@ -146,7 +146,7 @@ class TestFyersAPI(unittest.TestCase):
         self.assertEqual(qty, 1)  # Default when lot size is invalid
         mock_logger.warning.assert_called_once()
 
-    @patch('app.fyers_api._symbol_cache')
+    @patch('app.utils._symbol_cache')
     @patch('app.fyers_api.logger')
     def test_get_default_qty_with_nonexistent_symbol(self, mock_logger, mock_symbol_cache):
         """Test _get_default_qty with symbol not in cache."""
@@ -161,14 +161,14 @@ class TestFyersAPI(unittest.TestCase):
         self.assertEqual(qty, 1)  # Should return default value 1
         mock_logger.warning.assert_called_once()
 
-    @patch('app.fyers_api._symbol_cache', None)
-    @patch('app.fyers_api.load_symbol_master')
+    @patch('app.utils._symbol_cache', None)
+    @patch('app.utils.load_symbol_master')
     def test_get_default_qty_with_none_cache(self, mock_load_symbol_master):
         """Test _get_default_qty when symbol cache is None."""
         # Use side_effect to set the cache after load_symbol_master is called
         def side_effect():
-            import app.fyers_api
-            app.fyers_api._symbol_cache = self.mock_symbol_df
+            import app.utils
+            app.utils._symbol_cache = self.mock_symbol_df
         
         mock_load_symbol_master.side_effect = side_effect
         

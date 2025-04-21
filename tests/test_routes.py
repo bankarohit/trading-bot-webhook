@@ -1,4 +1,3 @@
-# ------------------ tests/test_routes.py ------------------
 import unittest
 from unittest.mock import patch, MagicMock
 from flask import Flask, json
@@ -10,9 +9,14 @@ class TestRoutes(unittest.TestCase):
         self.app.register_blueprint(webhook_bp)
         self.client = self.app.test_client()
 
+    @patch("app.routes.get_fyers")
     @patch("app.routes.get_access_token")
-    def test_health_check_success(self, mock_get_token):
+    def test_health_check_success(self, mock_get_token, mock_get_fyers):
         mock_get_token.return_value = "valid_token"
+        mock_fyers = MagicMock()
+        mock_fyers.get_profile.return_value = {"s": "ok", "data": {}}
+        mock_get_fyers.return_value = mock_fyers
+
         response = self.client.get("/readyz")
         self.assertEqual(response.status_code, 200)
         self.assertIn("ok", response.get_json()["status"])
@@ -35,7 +39,7 @@ class TestRoutes(unittest.TestCase):
     def test_refresh_token_failure(self, mock_refresh):
         mock_refresh.return_value = None
         response = self.client.post("/refresh-token")
-        self.assertEqual(response.status_code, 501)
+        self.assertEqual(response.status_code, 401)   # Updated from 502 to 401
         self.assertFalse(response.get_json()["success"])
 
     @patch("app.routes.get_auth_code_url")
@@ -53,7 +57,7 @@ class TestRoutes(unittest.TestCase):
     def test_webhook_success(self, mock_env, mock_resolve, mock_fyers, mock_ltp, mock_order):
         mock_resolve.return_value = "NSE:NIFTY245001CE"
         mock_ltp.return_value = 200
-        mock_order.return_value = {"code": 200, "id": "order123"}
+        mock_order.return_value = {"s": "ok", "message": "Order placed", "id": "order123"}  # Fixed mock
         mock_fyers.return_value = MagicMock()
 
         payload = {
@@ -67,11 +71,11 @@ class TestRoutes(unittest.TestCase):
         }
         response = self.client.post("/webhook", json=payload)
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.get_json()["success"])
+        self.assertEqual(response.get_json()["code"], 200)
 
     def test_webhook_missing_fields(self):
         response = self.client.post("/webhook", json={"symbol": "NIFTY"})
-        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.status_code, 400)   # Updated from 401 to 400
 
     def test_webhook_invalid_token(self):
         payload = {
@@ -84,7 +88,7 @@ class TestRoutes(unittest.TestCase):
             "qty": 75
         }
         response = self.client.post("/webhook", json=payload)
-        self.assertEqual(response.status_code, 402)
+        self.assertEqual(response.status_code, 401)   # Updated from 402 to 401
 
     @patch("app.routes.get_symbol_from_csv", return_value=None)
     @patch("app.routes.os.getenv", return_value="secret")
@@ -107,7 +111,7 @@ class TestRoutes(unittest.TestCase):
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret")
     def test_webhook_ltp_none_uses_defaults(self, mock_env, mock_resolve, mock_order, mock_ltp, mock_fyers):
-        mock_order.return_value = {"code": 200, "id": "fallback-order"}
+        mock_order.return_value = {"s": "ok", "message": "Order placed", "id": "fallback-order"}  # Fixed mock
         mock_fyers.return_value = MagicMock()
 
         payload = {
@@ -121,7 +125,7 @@ class TestRoutes(unittest.TestCase):
         }
         response = self.client.post("/webhook", json=payload)
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.get_json()["success"])
+        self.assertEqual(response.get_json()["code"], 200)
 
 if __name__ == '__main__':
     unittest.main()

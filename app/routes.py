@@ -13,11 +13,31 @@ webhook_bp = Blueprint("webhook", __name__)
 @webhook_bp.route("/readyz", methods=["GET"])
 def health_check():
     try:
-        logger.info("Health check endpoint called")
-        return jsonify({"status": "success", "message": "Service is ready to receive requests" }), 200
+        # 1. Check Access Token
+        token = get_access_token()
+        if not token:
+            raise Exception("Access token unavailable")
+
+        # 2. Ping Fyers API to get User Profile
+        fyers = get_fyers()
+        profile_response = fyers.get_profile()
+
+        if profile_response.get("s") != "ok":
+            raise Exception(f"Fyers API ping failed: {profile_response}")
+        
+        return jsonify({
+            "status": "ok",
+            "token_status": "active",
+            "fyers_status": "reachable",
+            "profile": profile_response.get("data", {})
+        }), 200
+
     except Exception as e:
-        logger.exception(f"Health check error: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        logger.exception(f"Health check failed: {e}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 @webhook_bp.route("/refresh-token", methods=["POST"])
 def refresh_token():
@@ -26,10 +46,10 @@ def refresh_token():
         if token:
             return jsonify({"success": True, "message": "Token refreshed"}), 200
         logger.error("Token refresh returned None")
-        return jsonify({"success": False, "message": "Failed to refresh token"}), 502
+        return jsonify({"success": False, "message": "Failed to refresh token"}), 401
     except Exception as e:
         logger.exception(f"Error refreshing token: {e}")
-        return jsonify({"success": False, "message": "Internal server error"}), 503
+        return jsonify({"success": False, "message": "Internal server error"}), 500
     
 @webhook_bp.route("/generate-token", methods=["POST"])
 def generate_token():
@@ -38,10 +58,10 @@ def generate_token():
         if token:
             return jsonify({"success": True, "message": "Token refreshed"}), 200
         logger.error("Token refresh returned None")
-        return jsonify({"success": False, "message": "Failed to refresh token"}), 502
+        return jsonify({"success": False, "message": "Failed to refresh token"}), 401
     except Exception as e:
         logger.exception(f"Error refreshing token: {e}")
-        return jsonify({"success": False, "message": "Internal server error"}), 503
+        return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @webhook_bp.route("/auth-url", methods=["GET"])
 def get_auth_url():
@@ -49,11 +69,11 @@ def get_auth_url():
         url = get_auth_code_url()
         if not url:
             logger.error("Failed to generate auth URL")
-            return jsonify({"success": False, "message": "Failed to generate auth URL"}), 505
+            return jsonify({"success": False, "message": "Failed to generate auth URL"}), 500
         return jsonify({"success": True, "auth_url": url}), 200
     except Exception as e:
         logger.exception(f"Error getting auth URL: {e}")
-        return jsonify({"success": False, "message": "Internal server error"}), 504
+        return jsonify({"success": False, "message": "Internal server error"}), 500
 
 @webhook_bp.route("/webhook", methods=["POST"])
 def webhook():
@@ -76,11 +96,11 @@ def webhook():
 
         if not symbol or not action or not strikeprice or not optionType or not expiry or not token:
             logger.error(f"Missing fields - symbol: {symbol}, action: {action}, strike: {strikeprice}, option_type: {optionType}, expiry: {expiry}, token: {token}")
-            return jsonify({"success": False, "error": "Missing required fields"}), 401
+            return jsonify({"success": False, "error": "Missing required fields"}), 400
 
         if token != os.getenv("WEBHOOK_SECRET_TOKEN"):
             logger.error(f"Unauthorized access from IP: {request.remote_addr}. Token provided: {token}")
-            return jsonify({"success": False, "error": "Unauthorized"}), 402
+            return jsonify({"success": False, "error": "Unauthorized"}), 401
 
         fyers_symbol = get_symbol_from_csv(symbol, strikeprice, optionType, expiry)
 
@@ -91,7 +111,7 @@ def webhook():
         try:
             fyers = get_fyers()
             if not fyers:
-                return jsonify({"success": False, "error": "Failed to initialize Fyers client"}), 506
+                return jsonify({"success": False, "error": "Failed to initialize Fyers client"}), 500
             
             ltp = get_ltp(fyers_symbol, fyers)
             if ltp is not None:
@@ -110,11 +130,26 @@ def webhook():
         try:
             fyers = get_fyers()
             order_response = place_order(fyers_symbol, qty, action, sl, tp, productType, fyers)
-            return  order_response
+            if order_response.get("s") != "ok":
+                logger.error(f"Fyers order failed: {order_response}")
+                return jsonify({  
+                    "code": -1,
+                    "message": f"Fyers order failed: {order_response.get('message', 'Unknown error')}",
+                    "details": order_response
+                }), 500
+            return jsonify({
+                "code": 200,
+                "message": order_response.get("message", "Order placed"),
+                "order_id": order_response.get("id"),
+                "details": order_response
+            }), 200
         except Exception as e:
             logger.exception(f"Exception occured while placing order: {e}")
+            return jsonify({
+                "code": -1,
+                "message": f"Exception while placing order: {str(e)}"
+            }), 500
 
-        logger.info(f"Order placed for {symbol} [{action}] with qty={qty}, sl={sl}, tp={tp}")
 
         # try:
         #     _trade_logged = log_trade_to_sheet(get_gsheet_client(), symbol, action, qty, ltp, sl, tp, sheet_name="1")
@@ -124,6 +159,7 @@ def webhook():
 
         # return jsonify({"success": True, "message": "order placed", "order_response": order_response, 
         #                 "logged_to_sheet": _trade_logged }), 200
+
     except Exception as e:
         logger.exception(f"Unhandled error in webhook: {e}")
-        return jsonify({"success": False, "error": str(e)}), 505
+        return jsonify({"success": False, "error": str(e)}), 500

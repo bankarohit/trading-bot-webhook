@@ -21,7 +21,7 @@ class TestAuth(unittest.TestCase):
         token = auth.refresh_access_token()
         self.assertEqual(token, "refreshed123")
 
-    @patch("app.auth._token_manager.refresh_token", return_value=None)
+    @patch("app.auth._token_manager.refresh_token", side_effect=RefreshTokenError("Simulated failure"))
     def test_refresh_access_token_failure(self, mock_refresh):
         with self.assertRaises(RefreshTokenError):
             auth.refresh_access_token()

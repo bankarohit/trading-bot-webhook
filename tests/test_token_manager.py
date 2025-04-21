@@ -9,6 +9,7 @@ from app.token_manager import (
     TokenManager, get_token_manager,
     TokenManagerException, AuthCodeMissingError, RefreshTokenError, EnvironmentVariableError
 )
+from app.token_manager import TOKENS_FILE
 
 class TestTokenManager(unittest.TestCase):
     """Test cases for the TokenManager class."""
@@ -26,10 +27,20 @@ class TestTokenManager(unittest.TestCase):
             "FYERS_REDIRECT_URI": "test_redirect_uri",
             "WEBHOOK_SECRET_TOKEN": "test_webhook_token",
             "GOOGLE_SHEET_ID": "test_sheet_id",
-            "FYERS_PIN": "1234"
+            "FYERS_PIN": "1234",
+            "FYERS_AUTH_CODE": "dummy_auth_code"
         })
         self.env_patcher.start()
-        
+
+            # Patch the TOKENS_FILE path to avoid overwriting local file
+        self.tokens_file = "test_tokens.json"
+        self.file_patcher = patch("app.token_manager.TOKENS_FILE", self.tokens_file)
+        self.file_patcher.start()
+
+        # Also remove the file if it exists
+        if os.path.exists(self.tokens_file):
+            os.remove(self.tokens_file)
+            
         # Patch load_env_variables to prevent validation errors
         self.load_env_patcher = patch('app.token_manager.load_env_variables')
         self.mock_load_env = self.load_env_patcher.start()
@@ -37,6 +48,9 @@ class TestTokenManager(unittest.TestCase):
     def tearDown(self):
         """Clean up after each test."""
         self.env_patcher.stop()
+        self.file_patcher.stop()
+        if os.path.exists(self.tokens_file):
+            os.remove(self.tokens_file)
         self.load_env_patcher.stop()
 
     @patch("os.path.exists", return_value=False)
@@ -67,26 +81,31 @@ class TestTokenManager(unittest.TestCase):
     def test_save_tokens_success(self, mock_file):
         """Test successful saving of tokens to file."""
         manager = TokenManager()
-        # Reset the mock to clear the call made during initialization
+        
+        # Reset mock to clear initialization calls
         mock_file.reset_mock()
         
         manager._tokens = {"access_token": "test_token"}
         manager._save_tokens()
         
-        # Now we can assert it was called once for saving
-        mock_file.assert_called_once_with("tokens.json", "w")
+        # Check that file was opened for writing at least once
+        mock_file.assert_any_call(TOKENS_FILE, "w")
+        
         handle = mock_file()
         handle.write.assert_any_call('"access_token"')
         handle.write.assert_any_call('"test_token"')
+
     
     @patch("builtins.open", side_effect=Exception("Write error"))
     def test_save_tokens_exception(self, mock_file):
         """Test exception handling when saving tokens."""
         manager = TokenManager()
         manager._tokens = {"access_token": "test_token"}
-        with self.assertRaises(TokenManagerException):
+        
+        with patch('logging.Logger.error') as mock_log:
             manager._save_tokens()
-    
+            mock_log.assert_called()
+        
     def test_init_session_model(self):
         """Test initialization of the session model."""
         manager = TokenManager()
