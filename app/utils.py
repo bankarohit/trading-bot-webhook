@@ -25,7 +25,7 @@ symbol_master_columns = [
 ]
 
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-CREDS_FILE = "./secrets/service_account.json"
+CREDS_FILE = "/secrets/service_account.json"
 
 _symbol_cache = None
 _gsheet_client = None
