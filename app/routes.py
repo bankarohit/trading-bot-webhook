@@ -128,6 +128,11 @@ def webhook():
             tp = None
 
         try:
+            _trade_logged = log_trade_to_sheet(get_gsheet_client(), symbol, action, qty, ltp, sl, tp, sheet_name="Trades")
+        except Exception as e:
+            logger.exception(f"Failed to log trade to sheet: {e}")
+            _trade_logged = False
+        try:
             fyers = get_fyers()
             order_response = place_order(fyers_symbol, qty, action, sl, tp, productType, fyers)
             if order_response.get("s") != "ok":
@@ -143,18 +148,6 @@ def webhook():
                 "code": -1,
                 "message": f"Exception while placing order: {str(e)}"
             }), 500
-
-
-        try:
-            _trade_logged = log_trade_to_sheet(get_gsheet_client(), symbol, action, qty, ltp, sl, tp, sheet_name="Trades")
-        except Exception as e:
-            logger.exception(f"Failed to log trade to sheet: {e}")
-            return jsonify({"success": False, 
-                            "error": "Failed to log trade",
-                            "message": order_response.get("message", "Order placed"),
-                            "order_id": order_response.get("id"),
-                            
-                }), 503
 
         return jsonify({"success": True, 
                         "message": "order placed", 

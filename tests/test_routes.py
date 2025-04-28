@@ -185,13 +185,20 @@ class TestRoutes(unittest.TestCase):
             "qty": 75
         }
 
-        response = self.client.post("/webhook", json=payload)
+        with self.assertLogs('app.routes', level='ERROR') as log_cm:
+            response = self.client.post("/webhook", json=payload)
+
         data = response.get_json()
 
-        self.assertEqual(response.status_code, 503)
-        self.assertFalse(data["success"])
-        self.assertEqual(data["error"], "Failed to log trade")
-        self.assertEqual(data["order_id"], "order123")
+        # Assert that the error was logged
+        error_logs = "\n".join(log_cm.output)
+        self.assertIn("Failed to log trade to sheet: GSheet failure", error_logs)
+
+        # Since your route continues after logging failure
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(data["success"])
+        self.assertEqual(data["order_response"]["id"], "order123")
+
         mock_log_sheet.assert_called_once()
 
 if __name__ == '__main__':
