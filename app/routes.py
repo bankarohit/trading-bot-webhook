@@ -1,6 +1,6 @@
 # ------------------ app/routes.py ------------------
 from flask import Blueprint, request, jsonify
-from app.fyers_api import get_ltp, place_order
+from app.fyers_api import get_ltp, place_order, _validate_order_params
 from app.utils import log_trade_to_sheet, get_symbol_from_csv, get_gsheet_client
 from app.auth import get_fyers, get_auth_code_url, get_access_token, refresh_access_token , generate_access_token
 import os
@@ -127,8 +127,9 @@ def webhook():
             sl = None
             tp = None
 
+        qty, sl, tp, productType = _validate_order_params(fyers_symbol, qty, sl, tp, productType)
         try:
-            _trade_logged = log_trade_to_sheet(symbol, action, qty, ltp, sl, tp, sheet_name="Trades")
+            _trade_logged = log_trade_to_sheet(fyers_symbol, action, qty, ltp, sl, tp, sheet_name="Trades")
         except Exception as e:
             logger.exception(f"Failed to log trade to sheet: {e}")
             _trade_logged = False
