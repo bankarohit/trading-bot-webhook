@@ -128,7 +128,7 @@ def webhook():
             tp = None
 
         try:
-            _trade_logged = log_trade_to_sheet(get_gsheet_client(), symbol, action, qty, ltp, sl, tp, sheet_name="Trades")
+            _trade_logged = log_trade_to_sheet(symbol, action, qty, ltp, sl, tp, sheet_name="Trades")
         except Exception as e:
             logger.exception(f"Failed to log trade to sheet: {e}")
             _trade_logged = False

@@ -12,6 +12,7 @@ from google.auth.exceptions import TransportError
 import ssl
 import certifi
 import urllib.request
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -88,27 +89,39 @@ def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
         logger.error(f"Exception in get_symbol_from_csv: {str(e)}")
         return None
 
-def log_trade_to_sheet(_client, symbol, action, qty, ltp, sl, tp, sheet_name="Trades", retries=3):
+def log_trade_to_sheet(symbol, action, qty, ltp, sl, tp, sheet_name="Trades", retries=3):
+    """
+    Logs a trade entry to Google Sheets with a unique UUID for tracking.
+    
+    Returns:
+    - True if logged successfully.
+    - False if logging fails.
+    """
     try:
-        sheet = _client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet(sheet_name)
+        client = get_gsheet_client()
+        sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet(sheet_name)
+
+        trade_id = str(uuid.uuid4())
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        row = [now, symbol, action, qty, ltp, sl, tp, "OPEN", "", "", ""]
+
+        row = [trade_id, now, symbol, action, qty, ltp, sl, tp, "OPEN", "", "", ""]
 
         for attempt in range(retries):
             try:
                 sheet.append_row(row)
+                logger.info(f"Trade logged successfully | ID: {trade_id} | Symbol: {symbol} | Action: {action} | Qty: {qty}")
                 return True
             except (gspread.exceptions.APIError, TransportError) as retryable:
-                logger.warning(f"Retry {attempt+1}/{retries} - Failed to log trade: {retryable}")
+                logger.warning(f"Retry {attempt+1}/{retries} - Failed to log trade ID {trade_id}: {retryable}")
                 time.sleep(2 ** attempt)
 
-        logger.error("Max retries reached. Could not log trade.")
+        logger.error(f"Max retries reached. Could not log trade ID {trade_id}.")
         return False
 
     except Exception as e:
         logger.error(f"Failed to log trade to Google Sheet: {str(e)}")
         return False
-
+    
 def get_open_trades_from_sheet(_client, sheet_name="Trades"):
     try:
         sheet = _client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet(sheet_name)

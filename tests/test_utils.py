@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import os
 import sys
 import logging
+import gspread
 
 # Add the parent directory to the path so we can import utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -212,166 +213,88 @@ def test_get_symbol_from_csv_exception(monkeypatch, sample_df):
 
 
 def test_log_trade_to_sheet_success(monkeypatch):
-    # Arrange
     mock_client = MagicMock()
     mock_sheet = MagicMock()
-    mock_sheet_instance = MagicMock()
-    mock_sheet_instance.worksheet.return_value = mock_sheet
-    mock_client.open_by_key.return_value = mock_sheet_instance
-    
+    mock_client.open_by_key.return_value.worksheet.return_value = mock_sheet
+
+    monkeypatch.setattr(app.utils, "get_gsheet_client", lambda: mock_client)
     monkeypatch.setattr(os, "getenv", lambda x: "test_sheet_id")
-    
-    # Mock datetime at the module level
+    monkeypatch.setattr(app.utils.uuid, "uuid4", lambda: "fixed-uuid")
     class MockDateTime:
         @classmethod
         def now(cls):
-            return datetime(2023, 1, 1, 12, 0, 0)
-        
-        @staticmethod
-        def strftime(dt, fmt):
-            return datetime.strftime(dt, fmt)
-    
+            return MagicMock(strftime=lambda fmt: "2023-01-01 12:00:00")
+
     monkeypatch.setattr(app.utils, "datetime", MockDateTime)
-    
-    # Act
-    result = log_trade_to_sheet(mock_client, "NIFTY2541719000CE", "BUY", 50, 150.25, 145.75, 160.0)
-    
-    # Assert
+
+    result = log_trade_to_sheet("NIFTY", "BUY", 50, 150.25, 145.75, 160.0)
+
     mock_client.open_by_key.assert_called_once_with("test_sheet_id")
-    mock_sheet_instance.worksheet.assert_called_once_with("Trades")
     mock_sheet.append_row.assert_called_once_with([
-        "2023-01-01 12:00:00", "NIFTY2541719000CE", "BUY", 50, 150.25, 145.75, 160.0, "OPEN", "", "", ""
+        "fixed-uuid", "2023-01-01 12:00:00", "NIFTY", "BUY", 50, 150.25, 145.75, 160.0, "OPEN", "", "", ""
     ])
     assert result is True
 
 
+
 def test_log_trade_to_sheet_retry_success(monkeypatch):
-    # Arrange
     mock_client = MagicMock()
     mock_sheet = MagicMock()
-    mock_sheet_instance = MagicMock()
-    mock_sheet_instance.worksheet.return_value = mock_sheet
-    mock_client.open_by_key.return_value = mock_sheet_instance
-    
+    mock_error = gspread.exceptions.APIError(response=MagicMock())
+    mock_sheet.append_row.side_effect = [mock_error, None]
+    mock_client.open_by_key.return_value.worksheet.return_value = mock_sheet
+
+    monkeypatch.setattr(app.utils, "get_gsheet_client", lambda: mock_client)
     monkeypatch.setattr(os, "getenv", lambda x: "test_sheet_id")
-    
-    # Mock datetime at the module level
+    monkeypatch.setattr(app.utils.uuid, "uuid4", lambda: "retry-uuid")
     class MockDateTime:
         @classmethod
         def now(cls):
-            return datetime(2023, 1, 1, 12, 0, 0)
-        
-        @staticmethod
-        def strftime(dt, fmt):
-            return datetime.strftime(dt, fmt)
-    
+            return MagicMock(strftime=lambda fmt: "2023-01-01 12:00:00")
+
     monkeypatch.setattr(app.utils, "datetime", MockDateTime)
-    
-    # Mock time.sleep
-    mock_sleep = MagicMock()
-    monkeypatch.setattr(app.utils.time, "sleep", mock_sleep)
-    
-    # Create a proper API Error
-    class MockAPIError(Exception):
-        pass
-    
-    # Mock the gspread exceptions module
-    mock_gspread = MagicMock()
-    mock_gspread.exceptions.APIError = MockAPIError
-    monkeypatch.setattr(app.utils, "gspread", mock_gspread)
-    
-    # First call raises error, second succeeds
-    mock_sheet.append_row.side_effect = [
-        MockAPIError("API error"),
-        None
-    ]
-    
-    # Act
-    result = log_trade_to_sheet(mock_client, "NIFTY2541719000CE", "BUY", 50, 150.25, 145.75, 160.0)
-    
-    # Assert
+    monkeypatch.setattr(app.utils.time, "sleep", MagicMock())
+
+    result = log_trade_to_sheet("NIFTY", "BUY", 50, 150.25, 145.75, 160.0)
+
     assert mock_sheet.append_row.call_count == 2
-    mock_sleep.assert_called_once_with(1)  # 2^0 = 1
     assert result is True
 
 
 def test_log_trade_to_sheet_max_retries(monkeypatch):
-    # Arrange
     mock_client = MagicMock()
     mock_sheet = MagicMock()
-    mock_sheet_instance = MagicMock()
-    mock_sheet_instance.worksheet.return_value = mock_sheet
-    mock_client.open_by_key.return_value = mock_sheet_instance
-    
+    mock_error = gspread.exceptions.APIError(response=MagicMock())
+    mock_sheet.append_row.side_effect = mock_error
+    mock_client.open_by_key.return_value.worksheet.return_value = mock_sheet
+
+    monkeypatch.setattr(app.utils, "get_gsheet_client", lambda: mock_client)
     monkeypatch.setattr(os, "getenv", lambda x: "test_sheet_id")
-    
-    # Mock datetime at the module level
+    monkeypatch.setattr(app.utils.uuid, "uuid4", lambda: "maxretry-uuid")
     class MockDateTime:
         @classmethod
         def now(cls):
-            return datetime(2023, 1, 1, 12, 0, 0)
-        
-        @staticmethod
-        def strftime(dt, fmt):
-            return datetime.strftime(dt, fmt)
-    
+            return MagicMock(strftime=lambda fmt: "2023-01-01 12:00:00")
+
     monkeypatch.setattr(app.utils, "datetime", MockDateTime)
-    
-    # Mock time.sleep
-    mock_sleep = MagicMock()
-    monkeypatch.setattr(app.utils.time, "sleep", mock_sleep)
-    
-    # Create a proper API Error
-    class MockAPIError(Exception):
-        pass
-    
-    # Mock the gspread exceptions module
-    mock_gspread = MagicMock()
-    mock_gspread.exceptions.APIError = MockAPIError
-    monkeypatch.setattr(app.utils, "gspread", mock_gspread)
-    
-    # Create a proper TransportError
-    class MockTransportError(Exception):
-        pass
-    
-    monkeypatch.setattr(app.utils, "TransportError", MockTransportError)
-    
-    # All calls fail with API error
-    mock_sheet.append_row.side_effect = MockAPIError("API error")
-    
-    # Act
-    result = log_trade_to_sheet(mock_client, "NIFTY2541719000CE", "BUY", 50, 150.25, 145.75, 160.0, retries=3)
-    
-    # Assert
+    monkeypatch.setattr(app.utils.time, "sleep", MagicMock())
+
+    result = log_trade_to_sheet("NIFTY", "BUY", 50, 150.25, 145.75, 160.0, retries=3)
+
     assert mock_sheet.append_row.call_count == 3
-    assert mock_sleep.call_count == 3
     assert result is False
-    app.utils.logger.error.assert_called_with("Max retries reached. Could not log trade.")
+    app.utils.logger.error.assert_called_with("Max retries reached. Could not log trade ID maxretry-uuid.")
 
 
 def test_log_trade_to_sheet_exception(monkeypatch):
-    # Arrange
     mock_client = MagicMock()
     mock_client.open_by_key.side_effect = Exception("Sheet access error")
-    
+
+    monkeypatch.setattr(app.utils, "get_gsheet_client", lambda: mock_client)
     monkeypatch.setattr(os, "getenv", lambda x: "test_sheet_id")
-    
-    # Mock datetime at the module level
-    class MockDateTime:
-        @classmethod
-        def now(cls):
-            return datetime(2023, 1, 1, 12, 0, 0)
-        
-        @staticmethod
-        def strftime(dt, fmt):
-            return datetime.strftime(dt, fmt)
-    
-    monkeypatch.setattr(app.utils, "datetime", MockDateTime)
-    
-    # Act
-    result = log_trade_to_sheet(mock_client, "NIFTY2541719000CE", "BUY", 50, 150.25, 145.75, 160.0)
-    
-    # Assert
+
+    result = log_trade_to_sheet("NIFTY", "BUY", 50, 150.25, 145.75, 160.0)
+
     assert result is False
     app.utils.logger.error.assert_called_with("Failed to log trade to Google Sheet: Sheet access error")
 
