@@ -136,13 +136,7 @@ def webhook():
                     "code": -1,
                     "message": f"Fyers order failed: {order_response.get('message', 'Unknown error')}",
                     "details": order_response
-                }), 500
-            return jsonify({
-                "code": 200,
-                "message": order_response.get("message", "Order placed"),
-                "order_id": order_response.get("id"),
-                "details": order_response
-            }), 200
+                }), 500            
         except Exception as e:
             logger.exception(f"Exception occured while placing order: {e}")
             return jsonify({
@@ -151,14 +145,22 @@ def webhook():
             }), 500
 
 
-        # try:
-        #     _trade_logged = log_trade_to_sheet(get_gsheet_client(), symbol, action, qty, ltp, sl, tp, sheet_name="1")
-        # except Exception as e:
-        #     logger.exception(f"Failed to log trade to sheet: {e}")
-        #     return jsonify({"success": False, "error": "Failed to log trade"}), 503
+        try:
+            _trade_logged = log_trade_to_sheet(get_gsheet_client(), symbol, action, qty, ltp, sl, tp, sheet_name="Trades")
+        except Exception as e:
+            logger.exception(f"Failed to log trade to sheet: {e}")
+            return jsonify({"success": False, 
+                            "error": "Failed to log trade",
+                            "message": order_response.get("message", "Order placed"),
+                            "order_id": order_response.get("id"),
+                            
+                }), 503
 
-        # return jsonify({"success": True, "message": "order placed", "order_response": order_response, 
-        #                 "logged_to_sheet": _trade_logged }), 200
+        return jsonify({"success": True, 
+                        "message": "order placed", 
+                        "order_response": order_response, 
+                        "logged_to_sheet": _trade_logged 
+                        }), 200
 
     except Exception as e:
         logger.exception(f"Unhandled error in webhook: {e}")
