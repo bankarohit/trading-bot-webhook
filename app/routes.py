@@ -5,6 +5,7 @@ from app.utils import log_trade_to_sheet, get_symbol_from_csv, get_gsheet_client
 from app.auth import get_fyers, get_auth_code_url, get_access_token, refresh_access_token , generate_access_token
 import os
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -102,18 +103,25 @@ def webhook():
             logger.error(f"Unauthorized access from IP: {request.remote_addr}. Token provided: {token}")
             return jsonify({"success": False, "error": "Unauthorized"}), 401
 
+        start = time.time()
         fyers_symbol = get_symbol_from_csv(symbol, strikeprice, optionType, expiry)
+        logger.info(f"getSymbol took {time.time() - start:.2f}s")
 
         if not fyers_symbol:
             return jsonify({"success": False, "error": "Could not resolve symbol"}), 403
 
         ltp = None
         try:
+            start = time.time()
             fyers = get_fyers()
+            logger.info(f"getFyers took {time.time() - start:.2f}s")
             if not fyers:
                 return jsonify({"success": False, "error": "Failed to initialize Fyers client"}), 500
             
+            start = time.time()
+            
             ltp = get_ltp(fyers_symbol, fyers)
+            logger.info(f"getLTPs took {time.time() - start:.2f}s")
             if ltp is not None:
                 sl = round(ltp * 0.05)
                 tp = round(ltp * 0.1)
@@ -129,7 +137,9 @@ def webhook():
 
         qty, sl, tp, productType = _validate_order_params(fyers_symbol, qty, sl, tp, productType)
         try:
+            start = time.time()
             _trade_logged = log_trade_to_sheet(fyers_symbol, action, qty, ltp, sl, tp, sheet_name="Trades")
+            logger.info(f"logTrade took {time.time() - start:.2f}s")
         except Exception as e:
             logger.exception(f"Failed to log trade to sheet: {e}")
             _trade_logged = False
