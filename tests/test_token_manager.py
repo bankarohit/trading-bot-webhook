@@ -59,14 +59,33 @@ class TestTokenManager(unittest.TestCase):
         manager = TokenManager()
         self.assertEqual(manager._tokens, {})
     
-    @patch("os.path.exists", return_value=True)
-    @patch("builtins.open", new_callable=mock_open, 
-           read_data='{"access_token": "test_token", "refresh_token": "test_refresh"}')
-    def test_load_tokens_success(self, mock_file, mock_exists):
-        """Test successful loading of tokens from file."""
+    @patch("google.cloud.storage.Client")
+    @patch("builtins.open", new_callable=mock_open, read_data='{"access_token": "test_token", "refresh_token": "test_refresh"}')
+    def test_load_tokens_success(self, mock_file, mock_gcs_client):
+        # Mock the GCS blob to simulate existence and download
+        mock_blob = MagicMock()
+        mock_blob.exists.return_value = True
+        mock_blob.download_to_filename.return_value = None
+
+        # Mock the bucket to return the blob
+        mock_bucket = MagicMock()
+        mock_bucket.blob.return_value = mock_blob
+
+        # Mock the GCS client to return the mock bucket
+        mock_client_instance = MagicMock()
+        mock_client_instance.bucket.return_value = mock_bucket
+        mock_gcs_client.return_value = mock_client_instance
+
+        # Now initialize the manager which will trigger GCS + file read
         manager = TokenManager()
+
+        # Validate result
         self.assertEqual(manager._tokens["access_token"], "test_token")
         self.assertEqual(manager._tokens["refresh_token"], "test_refresh")
+
+        # Validate interactions
+        mock_blob.download_to_filename.assert_called_once()
+        mock_file.assert_called_with("tokens.json", "r")
     
     @patch("os.path.exists", return_value=True)
     @patch("builtins.open", side_effect=Exception("File error"))
