@@ -46,9 +46,11 @@ def get_gsheet_client():
 def load_symbol_master():
     global _symbol_cache
     try:
-        context = ssl.create_default_context(cafile=certifi.where())
-        with urllib.request.urlopen(symbol_master_url, context=context) as response:
-            _symbol_cache = pd.read_csv(response, header=None, names=symbol_master_columns)
+        _symbol_cache = pd.read_csv(
+            symbol_master_url,
+            header=None,
+            names=symbol_master_columns,
+        )
         logger.debug("Loaded symbol master into memory")
     except Exception as e:
         logger.error(f"Failed to load symbol master: {str(e)}")
