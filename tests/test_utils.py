@@ -1,11 +1,21 @@
+import os
+import sys
 import pytest
 from unittest.mock import patch, MagicMock, mock_open
 import pandas as pd
 from datetime import datetime, timedelta
-import os
-import sys
 import logging
 import gspread
+
+# Ensure app package importability and set required environment variables
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ.setdefault("FYERS_APP_ID", "dummy")
+os.environ.setdefault("FYERS_SECRET_ID", "dummy")
+os.environ.setdefault("FYERS_REDIRECT_URI", "http://localhost")
+os.environ.setdefault("WEBHOOK_SECRET_TOKEN", "dummy")
+os.environ.setdefault("GOOGLE_SHEET_ID", "dummy")
+os.environ.setdefault("FYERS_PIN", "0000")
+os.environ.setdefault("FYERS_AUTH_CODE", "dummy")
 
 # Add the parent directory to the path so we can import utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

@@ -1,10 +1,22 @@
+import os
+import sys
 import unittest
 from unittest.mock import patch, mock_open, MagicMock
 import json
-import os
 import threading
 import hashlib
 import requests
+
+# Ensure package import and provide env vars for load_env_variables
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ.setdefault("FYERS_APP_ID", "dummy")
+os.environ.setdefault("FYERS_SECRET_ID", "dummy")
+os.environ.setdefault("FYERS_REDIRECT_URI", "http://localhost")
+os.environ.setdefault("WEBHOOK_SECRET_TOKEN", "dummy")
+os.environ.setdefault("GOOGLE_SHEET_ID", "dummy")
+os.environ.setdefault("FYERS_PIN", "0000")
+os.environ.setdefault("FYERS_AUTH_CODE", "dummy")
+
 from app.token_manager import (
     TokenManager, get_token_manager,
     TokenManagerException, AuthCodeMissingError, RefreshTokenError, EnvironmentVariableError
