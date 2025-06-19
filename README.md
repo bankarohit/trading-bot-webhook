@@ -44,7 +44,7 @@ TradingView Strategy --(alert JSON)--> Flask Webhook
 ## Setup
 
 1. **Create a Fyers API application** and note the *APP_ID*, *SECRET_ID* and redirect URI.
-2. **Prepare environment variables** (can be placed in a `.env` file):
+2. **Copy `.env.example` to `.env`** and fill in your credentials. The example file lists all required variables:
 
 ```env
 FYERS_APP_ID=your_app_id
