@@ -44,7 +44,7 @@ TradingView Strategy --(alert JSON)--> Flask Webhook
 ## Setup
 
 1. **Create a Fyers API application** and note the *APP_ID*, *SECRET_ID* and redirect URI.
-2. **Copy `.env.example` to `.env`** and fill in your credentials. The example file lists all required variables:
+2. **Copy `.env.example` to `.env`** and fill in your credentials. The example file lists all required variables, including Redis settings:
 
 ```env
 FYERS_APP_ID=your_app_id
@@ -54,6 +54,8 @@ FYERS_AUTH_CODE=obtained_from_login
 FYERS_PIN=1234
 WEBHOOK_SECRET_TOKEN=choose_a_secret
 GOOGLE_SHEET_ID=your_google_sheet_id
+REDIS_HOST=localhost
+REDIS_PORT=6379
 ```
 
 3. **Install dependencies**
@@ -62,7 +64,13 @@ GOOGLE_SHEET_ID=your_google_sheet_id
 pip install -r requirements.txt
 ```
 
-4. **Run locally**
+4. **Run a local Redis service** (required for the monitor prototype):
+
+```bash
+docker run -p 6379:6379 redis
+```
+
+5. **Run locally**
 
 ```bash
 export PYTHONPATH=.
@@ -70,6 +78,12 @@ python main.py
 ```
 
 The service will start on port `8080`.
+
+Alternatively you can spin up both the app and Redis using Docker Compose:
+
+```bash
+docker compose up
+```
 
 ## Deployment
 
