@@ -37,7 +37,6 @@ TradingView Strategy --(alert JSON)--> Flask Webhook
   - `routes.py` – Flask blueprint with webhook and utility endpoints.
   - `token_manager.py` – handles token storage and refresh using Google Cloud Storage.
   - `utils.py` – symbol master loader, Google Sheets helpers and Redis client.
-  - `monitor.py` – prototype for a WebSocket based position monitor.
 - `main.py` – entry point that starts the Flask app.
 - `tests/` – unit tests for all modules.
 
@@ -64,13 +63,7 @@ REDIS_PORT=6379
 pip install -r requirements.txt
 ```
 
-4. **Run a local Redis service** (required for the monitor prototype):
-
-```bash
-docker run -p 6379:6379 redis
-```
-
-5. **Run locally**
+4. **Run locally**
 
 ```bash
 export PYTHONPATH=.
