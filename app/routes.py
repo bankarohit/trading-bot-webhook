@@ -1,10 +1,17 @@
 from flask import Blueprint, request, jsonify
 from app.fyers_api import get_ltp, place_order, _validate_order_params
 from app.utils import log_trade_to_sheet, get_symbol_from_csv, get_gsheet_client
-from app.auth import get_fyers, get_auth_code_url, get_access_token, refresh_access_token , generate_access_token
+from app.auth import (
+    get_fyers,
+    get_auth_code_url,
+    get_access_token,
+    refresh_access_token,
+    generate_access_token,
+)
 import os
 import logging
 import time
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +87,13 @@ def webhook():
     try:
         data = request.get_json()
 
+        request_id = str(uuid.uuid4())
+
+        masked_data = dict(data or {})
+        if masked_data.get("token"):
+            masked_data["token"] = "***"
+        logger.info(f"[{request_id}] Incoming payload: {masked_data}")
+
         if not data:
             return jsonify({"success": False, "error": "Empty or invalid JSON", "data": data}), 400
 
@@ -95,41 +109,51 @@ def webhook():
         productType = data.get("productType", "BO")
 
         if not symbol or not action or not strikeprice or not optionType or not expiry or not token:
-            logger.error(f"Missing fields - symbol: {symbol}, action: {action}, strike: {strikeprice}, option_type: {optionType}, expiry: {expiry}, token: {token}")
+            logger.error(
+                f"[{request_id}] Missing fields - symbol: {symbol}, action: {action}, strike: {strikeprice}, option_type: {optionType}, expiry: {expiry}"
+            )
             return jsonify({"success": False, "error": "Missing required fields"}), 400
 
         if token != os.getenv("WEBHOOK_SECRET_TOKEN"):
-            logger.error(f"Unauthorized access from IP: {request.remote_addr}. Token provided: {token}")
+            logger.error(
+                f"[{request_id}] Unauthorized access from IP: {request.remote_addr}."
+            )
             return jsonify({"success": False, "error": "Unauthorized"}), 401
 
         start = time.time()
+        logger.info(
+            f"[{request_id}] Resolving symbol for {symbol} {strikeprice}{optionType} {expiry}"
+        )
         fyers_symbol = get_symbol_from_csv(symbol, strikeprice, optionType, expiry)
-        logger.info(f"getSymbol took {time.time() - start:.2f}s")
+        logger.info(f"[{request_id}] getSymbol took {time.time() - start:.2f}s")
 
         if not fyers_symbol:
+            logger.error(f"[{request_id}] Could not resolve symbol")
             return jsonify({"success": False, "error": "Could not resolve symbol"}), 403
 
         ltp = None
         try:
             start = time.time()
             fyers = get_fyers()
-            logger.info(f"getFyers took {time.time() - start:.2f}s")
+            logger.info(f"[{request_id}] getFyers took {time.time() - start:.2f}s")
             if not fyers:
                 return jsonify({"success": False, "error": "Failed to initialize Fyers client"}), 500
-            
+
             start = time.time()
-            
+            logger.info(f"[{request_id}] Fetching LTP for {fyers_symbol}")
             ltp = get_ltp(fyers_symbol, fyers)
-            logger.info(f"getLTPs took {time.time() - start:.2f}s")
+            logger.info(f"[{request_id}] getLTPs took {time.time() - start:.2f}s")
             if ltp is not None:
                 sl = round(ltp * 0.05)
                 tp = round(ltp * 0.1)
             else:
-                logger.warning(f"LTP returned None for symbol {fyers_symbol}, using default SL/TP from fyers_api")
+                logger.warning(
+                    f"[{request_id}] LTP returned None for symbol {fyers_symbol}, using default SL/TP from fyers_api"
+                )
                 sl = None
                 tp = None
         except Exception as e:
-            logger.exception(f"Failed to get LTP for symbol {symbol}: {e}")
+            logger.exception(f"[{request_id}] Failed to get LTP for symbol {symbol}: {e}")
             ltp = None
             sl = None
             tp = None
@@ -137,34 +161,45 @@ def webhook():
         qty, sl, tp, productType = _validate_order_params(fyers_symbol, qty, sl, tp, productType)
         try:
             start = time.time()
+            logger.info(f"[{request_id}] Logging trade to sheet")
             _trade_logged = log_trade_to_sheet(fyers_symbol, action, qty, ltp, sl, tp, sheet_name="Trades")
-            logger.info(f"logTrade took {time.time() - start:.2f}s")
+            logger.info(f"[{request_id}] logTrade took {time.time() - start:.2f}s")
         except Exception as e:
-            logger.exception(f"Failed to log trade to sheet: {e}")
+            logger.exception(f"[{request_id}] Failed to log trade to sheet: {e}")
             _trade_logged = False
         try:
             fyers = get_fyers()
+            logger.info(
+                f"[{request_id}] Placing order for {fyers_symbol} qty={qty} action={action} sl={sl} tp={tp} productType={productType}"
+            )
             order_response = place_order(fyers_symbol, qty, action, sl, tp, productType, fyers)
             if order_response.get("s") != "ok":
-                logger.error(f"Fyers order failed: {order_response}")
+                logger.error(f"[{request_id}] Fyers order failed: {order_response}")
                 return jsonify({
                     "code": -1,
                     "message": f"Fyers order failed: {order_response.get('message', 'Unknown error')}",
                     "details": order_response
                 }), 500
         except Exception as e:
-            logger.exception(f"Exception occured while placing order: {e}")
+            logger.exception(f"[{request_id}] Exception occured while placing order: {e}")
             return jsonify({
                 "code": -1,
                 "message": f"Exception while placing order: {str(e)}"
             }), 500
 
-        return jsonify({"success": True,
-                        "message": "order placed",
-                        "order_response": order_response,
-                        "logged_to_sheet": _trade_logged
-                        }), 200
+        logger.info(f"[{request_id}] Order placement complete")
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "message": "order placed",
+                    "order_response": order_response,
+                    "logged_to_sheet": _trade_logged,
+                }
+            ),
+            200,
+        )
 
     except Exception as e:
-        logger.exception(f"Unhandled error in webhook: {e}")
+        logger.exception(f"[{request_id}] Unhandled error in webhook: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
