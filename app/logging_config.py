@@ -1,12 +1,20 @@
 import os
 import logging
 from logging.handlers import RotatingFileHandler
+from flask import g, has_request_context
+
+def get_request_id() -> str:
+    """Return the current request ID if available."""
+    if has_request_context() and hasattr(g, "request_id"):
+        return g.request_id
+    return "-"
+
 
 class RequestIdFilter(logging.Filter):
-    """Ensure log records have a request_id attribute."""
+    """Inject the request_id from the Flask ``g`` object."""
+
     def filter(self, record: logging.LogRecord) -> bool:
-        if not hasattr(record, "request_id"):
-            record.request_id = "-"
+        record.request_id = get_request_id()
         return True
 
 
@@ -25,9 +33,17 @@ def configure_logging() -> None:
     logging.basicConfig(level=level, format=log_format)
 
     root_logger = logging.getLogger()
-    root_logger.addFilter(RequestIdFilter())
+
+    request_filter = RequestIdFilter()
+    root_logger.addFilter(request_filter)
 
     if log_file:
-        file_handler = RotatingFileHandler(log_file, maxBytes=10 * 1024 * 1024, backupCount=5)
+        file_handler = RotatingFileHandler(
+            log_file, maxBytes=10 * 1024 * 1024, backupCount=5
+        )
         file_handler.setFormatter(logging.Formatter(log_format))
+        file_handler.addFilter(request_filter)
         root_logger.addHandler(file_handler)
+
+    for handler in root_logger.handlers:
+        handler.addFilter(request_filter)
