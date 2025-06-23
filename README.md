@@ -53,7 +53,13 @@ FYERS_AUTH_CODE=obtained_from_login
 FYERS_PIN=1234
 WEBHOOK_SECRET_TOKEN=choose_a_secret
 GOOGLE_SHEET_ID=your_google_sheet_id
+GCS_BUCKET_NAME=your_bucket
+GCS_TOKENS_FILE=tokens/tokens.json
 ```
+
+`GCS_BUCKET_NAME` sets the Google Cloud Storage bucket used for token storage.
+`GCS_TOKENS_FILE` is the object path inside that bucket where `tokens.json` is
+saved.
 
 3. **Install dependencies**
 
