@@ -3,7 +3,6 @@ from app.routes import webhook_bp
 from app.config import load_env_variables
 from app.logging_config import request_id_extra
 import logging
-import os
 import time
 import uuid
 

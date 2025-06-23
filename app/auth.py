@@ -1,4 +1,4 @@
-import logging, os
+import logging
 from app.logging_config import request_id_extra
 from app.token_manager import (
     get_token_manager,
