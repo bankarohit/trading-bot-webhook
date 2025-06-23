@@ -3,6 +3,7 @@ import sys
 import pytest
 from unittest.mock import patch, MagicMock, mock_open
 import pandas as pd
+import urllib.request
 from datetime import datetime, timedelta
 import logging
 import gspread
@@ -104,10 +105,15 @@ def test_load_symbol_master_success(monkeypatch, sample_df):
     # Arrange
     mock_read_csv = MagicMock(return_value=sample_df)
     monkeypatch.setattr(pd, "read_csv", mock_read_csv)
-    
+    mock_response = MagicMock()
+    mock_response.read.return_value = b"dummy"
+    mock_urlopen = MagicMock(return_value=mock_response)
+    mock_response.__enter__.return_value = mock_response
+    monkeypatch.setattr(urllib.request, "urlopen", mock_urlopen)
+
     # Act
     load_symbol_master()
-    
+
     # Assert
     mock_read_csv.assert_called_once()
     assert app.utils._symbol_cache is not None
@@ -119,6 +125,10 @@ def test_load_symbol_master_failure(monkeypatch):
     # Arrange
     mock_read_csv = MagicMock(side_effect=Exception("Connection error"))
     monkeypatch.setattr(pd, "read_csv", mock_read_csv)
+    mock_response = MagicMock()
+    mock_response.read.return_value = b"dummy"
+    mock_response.__enter__.return_value = mock_response
+    monkeypatch.setattr(urllib.request, "urlopen", lambda *args, **kwargs: mock_response)
     
     # Act
     load_symbol_master()
