@@ -53,6 +53,8 @@ FYERS_AUTH_CODE=obtained_from_login
 FYERS_PIN=1234
 WEBHOOK_SECRET_TOKEN=choose_a_secret
 GOOGLE_SHEET_ID=your_google_sheet_id
+GCS_BUCKET_NAME=your_bucket
+GCS_TOKENS_FILE=tokens/tokens.json
 ```
 
 ### Google Service Account

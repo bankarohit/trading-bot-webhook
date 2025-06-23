@@ -1,5 +1,4 @@
 from datetime import datetime
-import math
 import os
 import pandas as pd
 import re
@@ -12,6 +11,7 @@ import ssl
 import certifi
 import urllib.request
 import uuid
+import io
 
 logger = logging.getLogger(__name__)
 
@@ -41,14 +41,17 @@ def get_gsheet_client():
 def load_symbol_master():
     global _symbol_cache
     try:
+        context = ssl.create_default_context(cafile=certifi.where())
+        with urllib.request.urlopen(symbol_master_url, context=context) as resp:
+            data = resp.read()
         _symbol_cache = pd.read_csv(
-            symbol_master_url,
+            io.BytesIO(data),
             header=None,
             names=symbol_master_columns,
         )
         logger.debug("Loaded symbol master into memory")
     except Exception as e:
-        logger.error(f"Failed to load symbol master: {str(e)}")
+        logger.error(f"Failed to load symbol master: {e}")
         _symbol_cache = pd.DataFrame(columns=symbol_master_columns)
 
 def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
