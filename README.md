@@ -37,7 +37,6 @@ TradingView Strategy --(alert JSON)--> Flask Webhook
   - `routes.py` – Flask blueprint with webhook and utility endpoints.
   - `token_manager.py` – handles token storage and refresh using Google Cloud Storage.
   - `utils.py` – symbol master loader and Google Sheets helpers.
-  - `monitor.py` – prototype for a WebSocket based position monitor.
 - `main.py` – entry point that starts the Flask app.
 - `tests/` – unit tests for all modules.
 
