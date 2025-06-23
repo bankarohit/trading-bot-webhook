@@ -240,7 +240,6 @@ class TokenManager:
                     log_path=""
                 )
                 # Optionally verify the client works by making a simple API call
-                # self._fyers.get_profile()  # Uncomment to test if needed
                 logger.debug("Fyers client initialized successfully")
             else:
                 logger.warning("Cannot initialize Fyers client: No access token available")
