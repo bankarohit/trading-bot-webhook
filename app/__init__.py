@@ -33,4 +33,5 @@ def create_app():
     app.after_request(after_request)
 
     app.register_blueprint(webhook_bp)
+    logger.info("Application initialized")
     return app
