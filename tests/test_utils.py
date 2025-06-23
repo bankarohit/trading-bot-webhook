@@ -1,7 +1,7 @@
 import os
 import sys
 import pytest
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import patch, MagicMock, mock_open, ANY
 import pandas as pd
 from datetime import datetime, timedelta
 import logging
@@ -112,7 +112,9 @@ def test_load_symbol_master_success(monkeypatch, sample_df):
     mock_read_csv.assert_called_once()
     assert app.utils._symbol_cache is not None
     assert len(app.utils._symbol_cache) == 4
-    app.utils.logger.debug.assert_called_with("Loaded symbol master into memory")
+    app.utils.logger.debug.assert_called_with(
+        "Loaded symbol master into memory", extra=ANY
+    )
 
 
 def test_load_symbol_master_failure(monkeypatch):
@@ -127,7 +129,9 @@ def test_load_symbol_master_failure(monkeypatch):
     mock_read_csv.assert_called_once()
     assert app.utils._symbol_cache is not None
     assert app.utils._symbol_cache.empty
-    app.utils.logger.error.assert_called_with("Failed to load symbol master: Connection error")
+    app.utils.logger.error.assert_called_with(
+        "Failed to load symbol master: Connection error", extra=ANY
+    )
 
 
 def test_get_symbol_from_csv_nifty_weekly_ce(monkeypatch, sample_df):
@@ -219,7 +223,9 @@ def test_get_symbol_from_csv_exception(monkeypatch, sample_df):
     
     # Assert
     assert result is None
-    app.utils.logger.error.assert_called_with("Exception in get_symbol_from_csv: Processing error")
+    app.utils.logger.error.assert_called_with(
+        "Exception in get_symbol_from_csv: Processing error", extra=ANY
+    )
 
 
 def test_log_trade_to_sheet_success(monkeypatch):
@@ -293,7 +299,9 @@ def test_log_trade_to_sheet_max_retries(monkeypatch):
 
     assert mock_sheet.append_row.call_count == 3
     assert result is False
-    app.utils.logger.error.assert_called_with("Max retries reached. Could not log trade ID maxretry-uuid.")
+    app.utils.logger.error.assert_called_with(
+        "Max retries reached. Could not log trade ID maxretry-uuid.", extra=ANY
+    )
 
 
 def test_log_trade_to_sheet_exception(monkeypatch):
@@ -306,7 +314,9 @@ def test_log_trade_to_sheet_exception(monkeypatch):
     result = log_trade_to_sheet("NIFTY", "BUY", 50, 150.25, 145.75, 160.0)
 
     assert result is False
-    app.utils.logger.error.assert_called_with("Failed to log trade to Google Sheet: Sheet access error")
+    app.utils.logger.error.assert_called_with(
+        "Failed to log trade to Google Sheet: Sheet access error", extra=ANY
+    )
 
 
 def test_get_open_trades_from_sheet_success(monkeypatch):
@@ -348,7 +358,9 @@ def test_get_open_trades_from_sheet_success(monkeypatch):
         if len(result) > 1 and len(expected_open_trades) > 1:
             assert result[1][2] == "NIFTY3"  # Symbol is now at index 2
     
-    app.utils.logger.debug.assert_called_with(f"Fetched {len(result)} open trades")
+    app.utils.logger.debug.assert_called_with(
+        f"Fetched {len(result)} open trades", extra=ANY
+    )
 
 
 def test_get_open_trades_from_sheet_custom_sheet(monkeypatch):
@@ -393,7 +405,9 @@ def test_get_open_trades_from_sheet_exception(monkeypatch):
     
     # Assert
     assert result == []
-    app.utils.logger.exception.assert_called_with("Failed to fetch open trades")
+    app.utils.logger.exception.assert_called_with(
+        "Failed to fetch open trades", extra=ANY
+    )
 
 
 def test_update_trade_status_in_sheet_success(monkeypatch):
@@ -445,7 +459,8 @@ def test_update_trade_status_in_sheet_success(monkeypatch):
     assert mock_sheet.update_cell.call_count >= 4  # At least 4 calls should be made
     assert result is True
     app.utils.logger.debug.assert_called_with(
-        f"Updated trade {trade_id} with status=CLOSED, exit_price=105.5"
+        f"Updated trade {trade_id} with status=CLOSED, exit_price=105.5",
+        extra=ANY,
     )
 
 
@@ -489,7 +504,9 @@ def test_update_trade_status_in_sheet_trade_not_found(monkeypatch):
     assert result is False
     # No cells should be updated
     mock_sheet.update_cell.assert_not_called()
-    app.utils.logger.warning.assert_called_with("Trade ID 2023-01-01 11:00:00 not found for update.")
+    app.utils.logger.warning.assert_called_with(
+        "Trade ID 2023-01-01 11:00:00 not found for update.", extra=ANY
+    )
 
 
 def test_update_trade_status_in_sheet_exception(monkeypatch):
@@ -506,7 +523,9 @@ def test_update_trade_status_in_sheet_exception(monkeypatch):
     
     # Assert
     assert result is False
-    app.utils.logger.error.assert_called_with("Failed to update trade status: Sheet access error")
+    app.utils.logger.error.assert_called_with(
+        "Failed to update trade status: Sheet access error", extra=ANY
+    )
 
 
 def test_update_trade_status_in_sheet_custom_sheet(monkeypatch):
