@@ -88,7 +88,9 @@ def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
         return fyersTickerSymbol
 
     except Exception as e:
-        logger.error(f"Exception in get_symbol_from_csv: {str(e)}")
+        logger.exception(
+            f"Exception in get_symbol_from_csv for symbol={symbol}, strike_price={strike_price}, option_type={option_type}, expiry_type={expiry_type}: {str(e)}"
+        )
         return None
 
 def log_trade_to_sheet(symbol, action, qty, ltp, sl, tp, sheet_name="Trades", retries=3):
@@ -99,11 +101,10 @@ def log_trade_to_sheet(symbol, action, qty, ltp, sl, tp, sheet_name="Trades", re
     - True if logged successfully.
     - False if logging fails.
     """
+    trade_id = str(uuid.uuid4())
     try:
         client = get_gsheet_client()
         sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet(sheet_name)
-
-        trade_id = str(uuid.uuid4())
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         row = [trade_id, now, symbol, action, qty, ltp, sl, tp, "OPEN", "", "", ""]
@@ -121,7 +122,9 @@ def log_trade_to_sheet(symbol, action, qty, ltp, sl, tp, sheet_name="Trades", re
         return False
 
     except Exception as e:
-        logger.error(f"Failed to log trade to Google Sheet: {str(e)}")
+        logger.exception(
+            f"Failed to log trade to Google Sheet for symbol {symbol} (ID: {trade_id}): {str(e)}"
+        )
         return False
     
 def get_open_trades_from_sheet(_client, sheet_name="Trades"):
@@ -132,7 +135,9 @@ def get_open_trades_from_sheet(_client, sheet_name="Trades"):
         logger.debug(f"Fetched {len(open_trades)} open trades")
         return open_trades
     except Exception as e:
-        logger.exception("Failed to fetch open trades")
+        logger.exception(
+            f"Failed to fetch open trades from sheet {sheet_name}: {str(e)}"
+        )
         return []
 
 def update_trade_status_in_sheet(_client, trade_id, status, exit_price, reason="", sheet_name="Trades"):
@@ -150,6 +155,8 @@ def update_trade_status_in_sheet(_client, trade_id, status, exit_price, reason="
         logger.warning(f"Trade ID {trade_id} not found for update.")
         return False
     except Exception as e:
-        logger.error(f"Failed to update trade status: {str(e)}")
+        logger.exception(
+            f"Failed to update trade status for {trade_id}: {str(e)}"
+        )
         return False
     

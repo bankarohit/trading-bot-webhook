@@ -15,7 +15,9 @@ def _validate_order_params(symbol, qty, sl, tp, productType):
     sl = float(sl) if sl and float(sl) > 0 else 10.0
     tp = float(tp) if tp and float(tp) > 0 else 20.0
     if productType not in valid_product_types:
-        logger.warning(f"Invalid productType '{productType}', defaulting to 'BO'")
+        logger.warning(
+            f"Invalid productType '{productType}' for symbol {symbol}, defaulting to 'BO'"
+        )
         productType = "BO"
     return qty, sl, tp, productType
 
@@ -44,7 +46,7 @@ def get_ltp(symbol, fyersModelInstance):
             logger.debug(f"Response from Fyers quotes API: {response}")
             return None
     except Exception as e:
-        logger.error(f"Exception in get_ltp: {str(e)}")
+        logger.exception(f"Exception in get_ltp for {symbol}: {str(e)}")
         return {"code": -1, "message": str(e)}
 
 def place_order(symbol, qty, action, sl, tp, productType, fyersModelInstance):
@@ -70,5 +72,5 @@ def place_order(symbol, qty, action, sl, tp, productType, fyersModelInstance):
         logger.debug(f"Response from Fyers order API: {response}")
         return response
     except Exception as e:
-        logger.error(f"Exception while placing order: {str(e)}")
+        logger.exception(f"Exception while placing order for {symbol}: {str(e)}")
         return {"code": -1, "message": str(e)}

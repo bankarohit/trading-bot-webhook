@@ -243,7 +243,7 @@ class TestFyersAPI(unittest.TestCase):
         
         # Verify function handles exception correctly
         self.assertEqual(result, {"code": -1, "message": "API Error"})
-        mock_logger.error.assert_called_once()
+        mock_logger.exception.assert_called_once()
 
     # Tests for place_order
     @patch('app.fyers_api._validate_order_params', return_value=(10, 5.0, 15.0, "CNC"))
@@ -329,7 +329,7 @@ class TestFyersAPI(unittest.TestCase):
         
         # Verify function handles exception correctly
         self.assertEqual(result, {"code": -1, "message": "Order API Error"})
-        mock_logger.error.assert_called_once()
+        mock_logger.exception.assert_called_once()
 
 
 if __name__ == '__main__':

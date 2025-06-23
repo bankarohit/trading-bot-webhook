@@ -219,7 +219,9 @@ def test_get_symbol_from_csv_exception(monkeypatch, sample_df):
     
     # Assert
     assert result is None
-    app.utils.logger.error.assert_called_with("Exception in get_symbol_from_csv: Processing error")
+    app.utils.logger.exception.assert_called_with(
+        "Exception in get_symbol_from_csv for symbol=NIFTY, strike_price=19000, option_type=CE, expiry_type=WEEKLY: Processing error"
+    )
 
 
 def test_log_trade_to_sheet_success(monkeypatch):
@@ -306,7 +308,9 @@ def test_log_trade_to_sheet_exception(monkeypatch):
     result = log_trade_to_sheet("NIFTY", "BUY", 50, 150.25, 145.75, 160.0)
 
     assert result is False
-    app.utils.logger.error.assert_called_with("Failed to log trade to Google Sheet: Sheet access error")
+    logged_msg = app.utils.logger.exception.call_args[0][0]
+    assert "Failed to log trade to Google Sheet for symbol NIFTY" in logged_msg
+    assert "Sheet access error" in logged_msg
 
 
 def test_get_open_trades_from_sheet_success(monkeypatch):
@@ -393,7 +397,9 @@ def test_get_open_trades_from_sheet_exception(monkeypatch):
     
     # Assert
     assert result == []
-    app.utils.logger.exception.assert_called_with("Failed to fetch open trades")
+    app.utils.logger.exception.assert_called_with(
+        "Failed to fetch open trades from sheet Trades: Sheet access error"
+    )
 
 
 def test_update_trade_status_in_sheet_success(monkeypatch):
@@ -506,7 +512,9 @@ def test_update_trade_status_in_sheet_exception(monkeypatch):
     
     # Assert
     assert result is False
-    app.utils.logger.error.assert_called_with("Failed to update trade status: Sheet access error")
+    app.utils.logger.exception.assert_called_with(
+        "Failed to update trade status for 2023-01-01 10:00:00: Sheet access error"
+    )
 
 
 def test_update_trade_status_in_sheet_custom_sheet(monkeypatch):
