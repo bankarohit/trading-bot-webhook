@@ -103,7 +103,7 @@ class TestTokenManager(unittest.TestCase):
     @patch("builtins.open", side_effect=Exception("File error"))
     def test_load_tokens_exception(self, mock_file, mock_exists):
         """Test exception handling when loading tokens."""
-        with patch('logging.Logger.error') as mock_log:
+        with patch('logging.Logger.exception') as mock_log:
             manager = TokenManager()
             self.assertEqual(manager._tokens, {})
             mock_log.assert_called_once()
@@ -133,7 +133,7 @@ class TestTokenManager(unittest.TestCase):
         manager = TokenManager()
         manager._tokens = {"access_token": "test_token"}
         
-        with patch('logging.Logger.error') as mock_log:
+        with patch('logging.Logger.exception') as mock_log:
             manager._save_tokens()
             mock_log.assert_called()
         
