@@ -1,10 +1,35 @@
 import os
+import logging
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 def load_env_variables():
     load_dotenv()
-    required_vars = ["FYERS_APP_ID", "FYERS_SECRET_ID", "FYERS_REDIRECT_URI", "WEBHOOK_SECRET_TOKEN","GOOGLE_SHEET_ID","FYERS_PIN", "FYERS_AUTH_CODE"]
+    required_vars = [
+        "FYERS_APP_ID",
+        "FYERS_SECRET_ID",
+        "FYERS_REDIRECT_URI",
+        "WEBHOOK_SECRET_TOKEN",
+        "GOOGLE_SHEET_ID",
+        "FYERS_PIN",
+        "FYERS_AUTH_CODE",
+    ]
+
+    missing_vars = []
     for var in required_vars:
-        if not os.getenv(var):
-            raise EnvironmentError(f"Missing required environment variable: {var}")
+        if os.getenv(var):
+            logger.debug("Environment variable %s is set", var)
+        else:
+            logger.debug("Environment variable %s is missing", var)
+            missing_vars.append(var)
+
+    if missing_vars:
+        logger.error(
+            "Missing required environment variables: %s",
+            ", ".join(missing_vars),
+        )
+        raise EnvironmentError(
+            f"Missing required environment variables: {', '.join(missing_vars)}"
+        )
     
