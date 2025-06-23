@@ -62,18 +62,15 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["auth_url"], "https://auth.test")
 
-    @patch("app.routes.get_Redis_client")
     @patch("app.routes.log_trade_to_sheet", return_value=True)
     @patch("app.routes.place_order")
     @patch("app.routes.get_ltp", return_value=200)
     @patch("app.routes.get_fyers")
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret")
-    def test_webhook_success(self, mock_env, mock_resolve, mock_fyers, mock_ltp, mock_order, mock_log_sheet, mock_redis):
+    def test_webhook_success(self, mock_env, mock_resolve, mock_fyers, mock_ltp, mock_order, mock_log_sheet):
         mock_order.return_value = {"s": "ok", "message": "Order placed", "id": "order123"}
         mock_fyers.return_value = MagicMock()
-        mock_redis_instance = MagicMock()
-        mock_redis.return_value = mock_redis_instance
 
         payload = {
             "token": "secret",
@@ -111,10 +108,9 @@ class TestRoutes(unittest.TestCase):
         response = self.client.post("/webhook", json=payload)
         self.assertEqual(response.status_code, 401)
 
-    @patch("app.routes.get_Redis_client")
     @patch("app.routes.get_symbol_from_csv", return_value=None)
     @patch("app.routes.os.getenv", return_value="secret")
-    def test_webhook_symbol_resolution_fail(self, mock_env, mock_resolve, mock_redis):
+    def test_webhook_symbol_resolution_fail(self, mock_env, mock_resolve):
         payload = {
             "token": "secret",
             "symbol": "NIFTY",
@@ -127,17 +123,15 @@ class TestRoutes(unittest.TestCase):
         response = self.client.post("/webhook", json=payload)
         self.assertEqual(response.status_code, 403)
 
-    @patch("app.routes.get_Redis_client")
     @patch("app.routes.log_trade_to_sheet", return_value=True)
     @patch("app.routes.get_fyers")
     @patch("app.routes.get_ltp", return_value=None)
     @patch("app.routes.place_order")
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret")
-    def test_webhook_ltp_none_uses_defaults(self, mock_env, mock_resolve, mock_order, mock_ltp, mock_fyers, mock_log_sheet, mock_redis):
+    def test_webhook_ltp_none_uses_defaults(self, mock_env, mock_resolve, mock_order, mock_ltp, mock_fyers, mock_log_sheet):
         mock_order.return_value = {"s": "ok", "message": "Order placed", "id": "fallback-order"}
         mock_fyers.return_value = MagicMock()
-        mock_redis.return_value = MagicMock()
 
         payload = {
             "token": "secret",
@@ -158,16 +152,14 @@ class TestRoutes(unittest.TestCase):
         self.assertTrue(data["logged_to_sheet"])
         mock_log_sheet.assert_called_once()
 
-    @patch("app.routes.get_Redis_client")
     @patch("app.routes.log_trade_to_sheet", return_value=True)
     @patch("app.routes.place_order")
     @patch("app.routes.get_ltp", return_value=200)
     @patch("app.routes.get_fyers")
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret_token")
-    def test_webhook_success_logs_to_sheet(self, mock_env, mock_resolve, mock_fyers, mock_ltp, mock_order, mock_log_sheet, mock_redis):
+    def test_webhook_success_logs_to_sheet(self, mock_env, mock_resolve, mock_fyers, mock_ltp, mock_order, mock_log_sheet):
         mock_order.return_value = {"s": "ok", "id": "order123", "message": "Order executed"}
-        mock_redis.return_value = MagicMock()
 
         payload = {
             "token": "secret_token",
@@ -187,16 +179,14 @@ class TestRoutes(unittest.TestCase):
         self.assertTrue(data["logged_to_sheet"])
         mock_log_sheet.assert_called_once()
 
-    @patch("app.routes.get_Redis_client")
     @patch("app.routes.log_trade_to_sheet", side_effect=Exception("GSheet failure"))
     @patch("app.routes.place_order")
     @patch("app.routes.get_ltp", return_value=200)
     @patch("app.routes.get_fyers")
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret_token")
-    def test_webhook_log_to_sheet_failure(self, mock_env, mock_resolve, mock_fyers, mock_ltp, mock_order, mock_log_sheet, mock_redis):
+    def test_webhook_log_to_sheet_failure(self, mock_env, mock_resolve, mock_fyers, mock_ltp, mock_order, mock_log_sheet):
         mock_order.return_value = {"s": "ok", "id": "order123", "message": "Order executed"}
-        mock_redis.return_value = MagicMock()
 
         payload = {
             "token": "secret_token",
