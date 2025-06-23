@@ -6,6 +6,7 @@ import re
 import time
 import gspread
 import logging
+from app.logging_config import request_id_extra
 from oauth2client.service_account import ServiceAccountCredentials
 from google.auth.exceptions import TransportError
 import ssl
@@ -46,15 +47,20 @@ def load_symbol_master():
             header=None,
             names=symbol_master_columns,
         )
-        logger.debug("Loaded symbol master into memory")
+        logger.debug("Loaded symbol master into memory", extra=request_id_extra())
     except Exception as e:
-        logger.error(f"Failed to load symbol master: {str(e)}")
+        logger.error(
+            f"Failed to load symbol master: {str(e)}", extra=request_id_extra()
+        )
         _symbol_cache = pd.DataFrame(columns=symbol_master_columns)
 
 def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
     global _symbol_cache
     try:
-        logger.debug(f"Requested: symbol={symbol.upper()}, strike_price={round(float(strike_price))}, option_type={option_type.upper()}, expiry_type={expiry_type}")
+        logger.debug(
+            f"Requested: symbol={symbol.upper()}, strike_price={round(float(strike_price))}, option_type={option_type.upper()}, expiry_type={expiry_type}",
+            extra=request_id_extra(),
+        )
 
         if _symbol_cache is None:
             load_symbol_master()
@@ -72,23 +78,23 @@ def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
         if expiry_type.upper() == "WEEKLY":
             df = df.sort_values('expiry_date')
             expiry = df.iloc[0]['expiry_date'] if not df.empty else None
-            logger.debug(f"Chosen weekly expiry: {expiry}")
+            logger.debug(f"Chosen weekly expiry: {expiry}", extra=request_id_extra())
         elif expiry_type.upper() == "MONTHLY":
             monthly_pattern = re.compile(rf"{symbol.upper()}\d{{2}}[A-Z]{{3}}")
             df = df[df['symbol_ticker'].str.contains(monthly_pattern)]
             df = df.sort_values('expiry_date')
             expiry = df.iloc[0]['expiry_date'] if not df.empty else None
-            logger.debug(f"Chosen monthly expiry: {expiry}")
+            logger.debug(f"Chosen monthly expiry: {expiry}", extra=request_id_extra())
         else:
             return None
 
         result = df[df['expiry_date'] == expiry]
         fyersTickerSymbol = result.iloc[0]['symbol_ticker'] if not result.empty else None
-        logger.debug(f"FyersTickerSymbol: {fyersTickerSymbol}")
+        logger.debug(f"FyersTickerSymbol: {fyersTickerSymbol}", extra=request_id_extra())
         return fyersTickerSymbol
 
     except Exception as e:
-        logger.error(f"Exception in get_symbol_from_csv: {str(e)}")
+        logger.error(f"Exception in get_symbol_from_csv: {str(e)}", extra=request_id_extra())
         return None
 
 def log_trade_to_sheet(symbol, action, qty, ltp, sl, tp, sheet_name="Trades", retries=3):
@@ -111,17 +117,27 @@ def log_trade_to_sheet(symbol, action, qty, ltp, sl, tp, sheet_name="Trades", re
         for attempt in range(retries):
             try:
                 sheet.append_row(row)
-                logger.info(f"Trade logged successfully | ID: {trade_id} | Symbol: {symbol} | Action: {action} | Qty: {qty}")
+                logger.info(
+                    f"Trade logged successfully | ID: {trade_id} | Symbol: {symbol} | Action: {action} | Qty: {qty}",
+                    extra=request_id_extra(),
+                )
                 return True
             except (gspread.exceptions.APIError, TransportError) as retryable:
-                logger.warning(f"Retry {attempt+1}/{retries} - Failed to log trade ID {trade_id}: {retryable}")
+                logger.warning(
+                    f"Retry {attempt+1}/{retries} - Failed to log trade ID {trade_id}: {retryable}",
+                    extra=request_id_extra(),
+                )
                 time.sleep(2 ** attempt)
 
-        logger.error(f"Max retries reached. Could not log trade ID {trade_id}.")
+        logger.error(
+            f"Max retries reached. Could not log trade ID {trade_id}.", extra=request_id_extra()
+        )
         return False
 
     except Exception as e:
-        logger.error(f"Failed to log trade to Google Sheet: {str(e)}")
+        logger.error(
+            f"Failed to log trade to Google Sheet: {str(e)}", extra=request_id_extra()
+        )
         return False
     
 def get_open_trades_from_sheet(_client, sheet_name="Trades"):
@@ -129,10 +145,12 @@ def get_open_trades_from_sheet(_client, sheet_name="Trades"):
         sheet = _client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet(sheet_name)
         rows = sheet.get_all_values()
         open_trades = [row for row in rows[1:] if len(row) >= 9 and row[8] == "OPEN"]
-        logger.debug(f"Fetched {len(open_trades)} open trades")
+        logger.debug(
+            f"Fetched {len(open_trades)} open trades", extra=request_id_extra()
+        )
         return open_trades
     except Exception as e:
-        logger.exception("Failed to fetch open trades")
+        logger.exception("Failed to fetch open trades", extra=request_id_extra())
         return []
 
 def update_trade_status_in_sheet(_client, trade_id, status, exit_price, reason="", sheet_name="Trades"):
@@ -145,11 +163,18 @@ def update_trade_status_in_sheet(_client, trade_id, status, exit_price, reason="
                 sheet.update_cell(idx, 11, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))  # column K (11th) - exit time  # column K (11th) - reason  # column I (9th) - status
                 sheet.update_cell(idx, 10, str(exit_price))  # column J (10th) - exit price
                 sheet.update_cell(idx, 12, reason)  # column L (12th) - reason  # column J (10th) - exit price
-                logger.debug(f"Updated trade {trade_id} with status={status}, exit_price={exit_price}")
+                logger.debug(
+                    f"Updated trade {trade_id} with status={status}, exit_price={exit_price}",
+                    extra=request_id_extra(),
+                )
                 return True
-        logger.warning(f"Trade ID {trade_id} not found for update.")
+        logger.warning(
+            f"Trade ID {trade_id} not found for update.", extra=request_id_extra()
+        )
         return False
     except Exception as e:
-        logger.error(f"Failed to update trade status: {str(e)}")
+        logger.error(
+            f"Failed to update trade status: {str(e)}", extra=request_id_extra()
+        )
         return False
     

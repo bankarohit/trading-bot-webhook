@@ -3,6 +3,7 @@ import json
 import hashlib
 import requests
 import logging
+from app.logging_config import request_id_extra
 import threading
 from datetime import datetime
 from fyers_apiv3 import fyersModel
@@ -70,13 +71,17 @@ class TokenManager:
 
             if blob.exists():
                 blob.download_to_filename(self.tokens_file)
-                logger.info("Loaded tokens.json from GCS.")
+                logger.info(
+                    "Loaded tokens.json from GCS.", extra=request_id_extra()
+                )
                 with open(self.tokens_file, "r") as f:
                     return json.load(f)
             else:
-                logger.warning("tokens.json not found in GCS, starting fresh.")
+                logger.warning(
+                    "tokens.json not found in GCS, starting fresh.", extra=request_id_extra()
+                )
         except Exception as e:
-            logger.error(f"GCS load failed: {e}")
+            logger.error(f"GCS load failed: {e}", extra=request_id_extra())
         return {}
 
     def _save_tokens(self):
@@ -91,9 +96,9 @@ class TokenManager:
                 blob = bucket.blob(os.getenv("GCS_TOKENS_FILE", "tokens/tokens.json"))
                 blob.upload_from_filename(self.tokens_file)
 
-                logger.info("tokens.json saved to GCS.")
+                logger.info("tokens.json saved to GCS.", extra=request_id_extra())
             except Exception as e:
-                logger.error(f"GCS save failed: {e}")
+                logger.error(f"GCS save failed: {e}", extra=request_id_extra())
 
     def _init_session_model(self):
         """Initialize and return a SessionModel for Fyers API."""
@@ -127,7 +132,9 @@ class TokenManager:
                 if token:
                     return token
             except RefreshTokenError as e:
-                logger.info("Token refresh failed, trying to generate new token: %s", e)
+                logger.info(
+                    "Token refresh failed, trying to generate new token: %s", e, extra=request_id_extra()
+                )
             
             # If refresh failed, try to generate a new token
             return self.generate_token()
@@ -137,7 +144,9 @@ class TokenManager:
         with self._lock:
             auth_code = os.getenv("FYERS_AUTH_CODE")
             if not auth_code:
-                logger.error("Missing AUTH_CODE. Visit the auth URL to obtain it.")
+                logger.error(
+                    "Missing AUTH_CODE. Visit the auth URL to obtain it.", extra=request_id_extra()
+                )
                 raise AuthCodeMissingError("FYERS_AUTH_CODE not set in environment")
 
             try:
@@ -158,15 +167,17 @@ class TokenManager:
                     # Immediately initialize a new Fyers client
                     self._fyers = None  # Clear existing instance
                     self._initialize_fyers_client()  # Create new instance with updated token
-                    
-                    logger.info("Access token generated successfully.")
+
+                    logger.info(
+                        "Access token generated successfully.", extra=request_id_extra()
+                    )
                     return response["access_token"]
-                
+
                 error_message = f"Token generation failed: {response}"
-                logger.error(error_message)
+                logger.error(error_message, extra=request_id_extra())
                 raise TokenManagerException(error_message)
             except Exception as e:
-                logger.exception("Token generation error: %s", e)
+                logger.exception("Token generation error: %s", e, extra=request_id_extra())
                 raise TokenManagerException(f"Token generation error: {e}")
 
     def refresh_token(self):
@@ -178,10 +189,10 @@ class TokenManager:
             secret_id = os.getenv("FYERS_SECRET_ID")
             
             if not (refresh_token and fyers_pin):
-                logger.error("Missing refresh_token or FYERS_PIN")
+                logger.error("Missing refresh_token or FYERS_PIN", extra=request_id_extra())
                 raise RefreshTokenError("Missing refresh_token or FYERS_PIN")
                 
-            logger.info("Refreshing access token...")
+            logger.info("Refreshing access token...", extra=request_id_extra())
             try:
                 app_hash = hashlib.sha256(f"{app_id}:{secret_id}".encode()).hexdigest()
                 payload = {
@@ -215,14 +226,16 @@ class TokenManager:
                     self._fyers = None  # Clear existing instance
                     self._initialize_fyers_client()  # Create new instance with updated token
                     
-                    logger.info("Access token refreshed successfully.")
+                    logger.info(
+                        "Access token refreshed successfully.", extra=request_id_extra()
+                    )
                     return response["access_token"]
                 
                 error_message = f"Token refresh failed: {response}"
-                logger.error(error_message)
+                logger.error(error_message, extra=request_id_extra())
                 raise RefreshTokenError(error_message)
             except Exception as e:
-                logger.exception("Refresh token error: %s", e)
+                logger.exception("Refresh token error: %s", e, extra=request_id_extra())
                 raise RefreshTokenError(f"Refresh token error: {e}")
 
     def _initialize_fyers_client(self):
@@ -239,11 +252,18 @@ class TokenManager:
                     log_path=""
                 )
                 # Optionally verify the client works by making a simple API call
-                logger.debug("Fyers client initialized successfully")
+                logger.debug(
+                    "Fyers client initialized successfully", extra=request_id_extra()
+                )
             else:
-                logger.warning("Cannot initialize Fyers client: No access token available")
+                logger.warning(
+                    "Cannot initialize Fyers client: No access token available",
+                    extra=request_id_extra(),
+                )
         except Exception as e:
-            logger.error("Failed to initialize Fyers client: %s", e)
+            logger.error(
+                "Failed to initialize Fyers client: %s", e, extra=request_id_extra()
+            )
             self._fyers = None  # Ensure it's None if initialization fails
             raise TokenManagerException(f"Failed to initialize Fyers client: {e}")
 
