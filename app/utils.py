@@ -150,9 +150,11 @@ def update_trade_status_in_sheet(_client, trade_id, status, exit_price, reason="
         for idx, row in enumerate(rows[1:], start=2):  # skip header row
             if row[0] == trade_id:  # assume unique timestamp as ID
                 sheet.update_cell(idx, 9, status)  # column I (9th) - status
-                sheet.update_cell(idx, 11, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))  # column K (11th) - exit time  # column K (11th) - reason  # column I (9th) - status
+                sheet.update_cell(
+                    idx, 11, datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                )  # column K (11th) - exit time
                 sheet.update_cell(idx, 10, str(exit_price))  # column J (10th) - exit price
-                sheet.update_cell(idx, 12, reason)  # column L (12th) - reason  # column J (10th) - exit price
+                sheet.update_cell(idx, 12, reason)  # column L (12th) - reason
                 logger.debug(f"Updated trade {trade_id} with status={status}, exit_price={exit_price}")
                 return True
         logger.warning(f"Trade ID {trade_id} not found for update.")
