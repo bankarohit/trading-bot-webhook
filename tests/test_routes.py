@@ -93,7 +93,6 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(data["order_response"]["id"], "order123")
         self.assertTrue(data["logged_to_sheet"])
         mock_log_sheet.assert_called_once()
-        # mock_redis_instance.set.assert_called_with("NSE:NIFTY245001CE", "OPEN")
 
     def test_webhook_missing_fields(self):
         response = self.client.post("/webhook", json={"symbol": "NIFTY"})

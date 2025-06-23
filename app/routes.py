@@ -162,12 +162,10 @@ def webhook():
                 "message": f"Exception while placing order: {str(e)}"
             }), 500
 
-        # redis = get_Redis_client()
-        # redis.set(fyers_symbol, "OPEN")
-        return jsonify({"success": True, 
-                        "message": "order placed", 
-                        "order_response": order_response, 
-                        "logged_to_sheet": _trade_logged 
+        return jsonify({"success": True,
+                        "message": "order placed",
+                        "order_response": order_response,
+                        "logged_to_sheet": _trade_logged
                         }), 200
 
     except Exception as e:
