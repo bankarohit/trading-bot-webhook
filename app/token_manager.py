@@ -70,13 +70,18 @@ class TokenManager:
 
             if blob.exists():
                 blob.download_to_filename(self.tokens_file)
-                logger.info("Loaded tokens.json from GCS.")
+                gcs_path = f"gs://{bucket.name}/{blob.name}"
+                logger.info(
+                    "Loaded tokens from %s into %s", gcs_path, self.tokens_file)
                 with open(self.tokens_file, "r") as f:
                     return json.load(f)
             else:
-                logger.warning("tokens.json not found in GCS, starting fresh.")
+                gcs_path = f"gs://{bucket.name}/{blob.name}"
+                logger.warning(
+                    "tokens.json not found in GCS at %s, starting fresh.",
+                    gcs_path)
         except Exception as e:
-            logger.error(f"GCS load failed: {e}")
+            logger.exception("GCS load failed: %s", e)
         return {}
 
     def _save_tokens(self):
@@ -91,9 +96,11 @@ class TokenManager:
                 blob = bucket.blob(os.getenv("GCS_TOKENS_FILE", "tokens/tokens.json"))
                 blob.upload_from_filename(self.tokens_file)
 
-                logger.info("tokens.json saved to GCS.")
+                gcs_path = f"gs://{bucket.name}/{blob.name}"
+                logger.info(
+                    "Saved tokens from %s to %s", self.tokens_file, gcs_path)
             except Exception as e:
-                logger.error(f"GCS save failed: {e}")
+                logger.exception("GCS save failed: %s", e)
 
     def _init_session_model(self):
         """Initialize and return a SessionModel for Fyers API."""
@@ -159,7 +166,9 @@ class TokenManager:
                     self._fyers = None  # Clear existing instance
                     self._initialize_fyers_client()  # Create new instance with updated token
                     
-                    logger.info("Access token generated successfully.")
+                    logger.info(
+                        "Access token generated successfully at %s",
+                        datetime.now().isoformat())
                     return response["access_token"]
                 
                 error_message = f"Token generation failed: {response}"
@@ -215,7 +224,9 @@ class TokenManager:
                     self._fyers = None  # Clear existing instance
                     self._initialize_fyers_client()  # Create new instance with updated token
                     
-                    logger.info("Access token refreshed successfully.")
+                    logger.info(
+                        "Access token refreshed successfully at %s",
+                        datetime.now().isoformat())
                     return response["access_token"]
                 
                 error_message = f"Token refresh failed: {response}"
@@ -243,7 +254,7 @@ class TokenManager:
             else:
                 logger.warning("Cannot initialize Fyers client: No access token available")
         except Exception as e:
-            logger.error("Failed to initialize Fyers client: %s", e)
+            logger.exception("Failed to initialize Fyers client: %s", e)
             self._fyers = None  # Ensure it's None if initialization fails
             raise TokenManagerException(f"Failed to initialize Fyers client: {e}")
 
