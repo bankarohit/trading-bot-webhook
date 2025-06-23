@@ -1,0 +1,21 @@
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment files
+.env
+.env.*
+*.env
+
+# Token file
+tokens.json
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+
+# IDE settings
+.vscode/
+.idea/
