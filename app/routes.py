@@ -1,7 +1,7 @@
 # ------------------ app/routes.py ------------------
 from flask import Blueprint, request, jsonify
 from app.fyers_api import get_ltp, place_order, _validate_order_params
-from app.utils import log_trade_to_sheet, get_symbol_from_csv, get_gsheet_client,get_Redis_client
+from app.utils import log_trade_to_sheet, get_symbol_from_csv, get_gsheet_client
 from app.auth import get_fyers, get_auth_code_url, get_access_token, refresh_access_token , generate_access_token
 import os
 import logging
@@ -147,14 +147,12 @@ def webhook():
             fyers = get_fyers()
             order_response = place_order(fyers_symbol, qty, action, sl, tp, productType, fyers)
             if order_response.get("s") != "ok":
-                redis = get_Redis_client()
-                redis.set(f"order_error_{fyers_symbol}", order_response.get("message", "Unknown error"))
                 logger.error(f"Fyers order failed: {order_response}")
-                return jsonify({  
+                return jsonify({
                     "code": -1,
                     "message": f"Fyers order failed: {order_response.get('message', 'Unknown error')}",
                     "details": order_response
-                }), 500            
+                }), 500
         except Exception as e:
             logger.exception(f"Exception occured while placing order: {e}")
             return jsonify({
