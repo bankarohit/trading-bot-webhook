@@ -20,7 +20,7 @@ TradingView Strategy --(alert JSON)--> Flask Webhook
         |  calculate SL/TP              |
         |                              +--> Google Sheets (trade log)
         v
-    (future) Redis cache / WebSocket monitor
+    (future) WebSocket monitor
 ```
 
 1. A Pine Script strategy sends an alert to `/webhook` with a secret token.
@@ -28,7 +28,7 @@ TradingView Strategy --(alert JSON)--> Flask Webhook
 3. The current LTP is fetched from Fyers to set stop loss and target if not provided.
 4. The order is placed using the Fyers REST API and the details are logged to Google Sheets.
 5. Utility endpoints allow generating the auth URL, refreshing tokens and health checks.
-6. A monitoring service via WebSocket and Redis can be added later to track open positions.
+6. A monitoring service via WebSocket can be added later to track open positions.
 
 ## Repository Layout
 
@@ -36,7 +36,7 @@ TradingView Strategy --(alert JSON)--> Flask Webhook
   - `auth.py` – wrappers around the token manager.
   - `routes.py` – Flask blueprint with webhook and utility endpoints.
   - `token_manager.py` – handles token storage and refresh using Google Cloud Storage.
-  - `utils.py` – symbol master loader, Google Sheets helpers and Redis client.
+  - `utils.py` – symbol master loader and Google Sheets helpers.
   - `monitor.py` – prototype for a WebSocket based position monitor.
 - `main.py` – entry point that starts the Flask app.
 - `tests/` – unit tests for all modules.
@@ -44,7 +44,7 @@ TradingView Strategy --(alert JSON)--> Flask Webhook
 ## Setup
 
 1. **Create a Fyers API application** and note the *APP_ID*, *SECRET_ID* and redirect URI.
-2. **Copy `.env.example` to `.env`** and fill in your credentials. The example file lists all required variables, including Redis settings:
+2. **Copy `.env.example` to `.env`** and fill in your credentials. The example file lists all required variables:
 
 ```env
 FYERS_APP_ID=your_app_id
@@ -54,8 +54,6 @@ FYERS_AUTH_CODE=obtained_from_login
 FYERS_PIN=1234
 WEBHOOK_SECRET_TOKEN=choose_a_secret
 GOOGLE_SHEET_ID=your_google_sheet_id
-REDIS_HOST=localhost
-REDIS_PORT=6379
 ```
 
 3. **Install dependencies**
@@ -64,13 +62,7 @@ REDIS_PORT=6379
 pip install -r requirements.txt
 ```
 
-4. **Run a local Redis service** (required for the monitor prototype):
-
-```bash
-docker run -p 6379:6379 redis
-```
-
-5. **Run locally**
+4. **Run locally**
 
 ```bash
 export PYTHONPATH=.
@@ -79,7 +71,7 @@ python main.py
 
 The service will start on port `8080`.
 
-Alternatively you can spin up both the app and Redis using Docker Compose:
+Alternatively you can spin up the app using Docker Compose:
 
 ```bash
 docker compose up
@@ -131,5 +123,5 @@ The suite covers token handling, route logic, Fyers integration and utility help
 
 ## Future Enhancements
 
-The design document outlines additional components such as a WebSocket listener to update trade status in Redis and Google Sheets, plus optional deployment on GKE or extended alerting (e.g. Telegram).  These can be built on top of the core webhook service contained here.
+The design document outlines additional components such as a WebSocket listener to update trade status in Google Sheets, plus optional deployment on GKE or extended alerting (e.g. Telegram).  These can be built on top of the core webhook service contained here.
 
