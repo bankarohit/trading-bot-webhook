@@ -55,6 +55,14 @@ WEBHOOK_SECRET_TOKEN=choose_a_secret
 GOOGLE_SHEET_ID=your_google_sheet_id
 ```
 
+### Google Service Account
+
+1. Create a service account in Google Cloud and enable the **Sheets API** and **Cloud Storage**.
+2. Download the JSON key file for this account.
+3. Either set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the key path or mount the key at `/secrets/service_account.json`.
+
+These credentials are required for storing tokens in Google Cloud Storage and for accessing Google Sheets.
+
 3. **Install dependencies**
 
 ```bash
