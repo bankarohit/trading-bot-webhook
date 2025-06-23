@@ -1,4 +1,3 @@
-# ------------------ main.py ------------------
 from app import create_app
 import threading
 from app.config import load_env_variables

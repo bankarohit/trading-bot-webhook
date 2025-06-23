@@ -1,4 +1,3 @@
-# ------------------ app/utils.py ------------------
 from datetime import datetime
 import math
 import os

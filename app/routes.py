@@ -1,4 +1,3 @@
-# ------------------ app/routes.py ------------------
 from flask import Blueprint, request, jsonify
 from app.fyers_api import get_ltp, place_order, _validate_order_params
 from app.utils import log_trade_to_sheet, get_symbol_from_csv, get_gsheet_client
