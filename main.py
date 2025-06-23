@@ -1,14 +1,9 @@
 from app import create_app
-import threading
 from app.config import load_env_variables
-import logging
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s"
-)
+from app.logging_config import configure_logging
 
 load_env_variables()
+configure_logging()
 
 app = create_app()
 
