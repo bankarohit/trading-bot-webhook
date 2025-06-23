@@ -13,7 +13,6 @@ import ssl
 import certifi
 import urllib.request
 import uuid
-import redis
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +28,6 @@ symbol_master_columns = [
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 CREDS_FILE = "/secrets/service_account.json"
 
-# Redis configuration
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 
 _symbol_cache = None
 _gsheet_client = None
@@ -158,10 +154,3 @@ def update_trade_status_in_sheet(_client, trade_id, status, exit_price, reason="
         logger.error(f"Failed to update trade status: {str(e)}")
         return False
     
-def get_Redis_client():
-    try:
-        r =  redis.Redis(host=REDIS_HOST, port=REDIS_PORT)
-        return r
-    except Exception as e:
-        logger.error(f"Failed to connect to Redis: {str(e)}")
-        return None

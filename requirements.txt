@@ -12,4 +12,3 @@ gcloud
 yapf
 pytz
 google-cloud-storage
-redis
