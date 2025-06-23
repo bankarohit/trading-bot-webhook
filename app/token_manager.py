@@ -46,6 +46,7 @@ def get_token_manager():
             # Double-check pattern to avoid race condition
             if _token_manager_instance is None:
                 _token_manager_instance = TokenManager()
+                logger.info("TokenManager singleton instance created")
     
     return _token_manager_instance
 
@@ -55,8 +56,16 @@ class TokenManager:
         """Initialize the TokenManager with the specified tokens file."""
         # This will validate all required environment variables
         load_env_variables()  # This already calls load_dotenv() and validates variables
-        
+
         self.tokens_file = tokens_file
+        bucket_name = os.getenv("GCS_BUCKET_NAME")
+        blob_name = os.getenv("GCS_TOKENS_FILE", "tokens/tokens.json")
+        logger.info(
+            "Using tokens_file=%s, bucket=%s, blob=%s",
+            self.tokens_file,
+            bucket_name,
+            blob_name,
+        )
         self._tokens = self._load_tokens()
         self._session = self._init_session_model()
         self._fyers = None  # Will be lazily initialized when needed
