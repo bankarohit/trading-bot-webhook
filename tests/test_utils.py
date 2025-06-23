@@ -454,8 +454,6 @@ def test_update_trade_status_in_sheet_success(monkeypatch):
     mock_client.open_by_key.assert_called_once_with("test_sheet_id")
     mock_sheet_instance.worksheet.assert_called_once_with("Trades")
     
-    # Print call args to debug
-    print(f"update_cell calls: {mock_sheet.update_cell.call_args_list}")
     
     # Check cells were updated
     assert mock_sheet.update_cell.call_count >= 4  # At least 4 calls should be made
