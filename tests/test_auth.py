@@ -1,4 +1,3 @@
-# ------------------ tests/test_auth.py ------------------
 import os
 import sys
 import unittest

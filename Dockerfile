@@ -1,5 +1,3 @@
-### ------------------ Dockerfile ------------------
-
     FROM python:3.12-slim
 
 # Install system dependencies, including CA certificates
@@ -28,4 +26,3 @@ RUN apt-get update && apt-get install -y \
     
     CMD ["python", "main.py"]
 
-### ------------------ Dockerfile -------------------

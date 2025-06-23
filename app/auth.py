@@ -1,4 +1,3 @@
-# ------------------ app/auth.py ------------------
 import logging, os
 from app.token_manager import (
     get_token_manager,

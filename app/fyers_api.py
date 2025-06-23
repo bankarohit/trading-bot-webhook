@@ -1,4 +1,3 @@
-# ------------------ app/fyers_api.py ------------------
 import logging
 from app.auth import get_fyers
 import app.utils as utils
