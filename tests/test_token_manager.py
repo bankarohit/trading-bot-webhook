@@ -56,6 +56,19 @@ class TestTokenManager(unittest.TestCase):
         # Patch load_env_variables to prevent validation errors
         self.load_env_patcher = patch('app.token_manager.load_env_variables')
         self.mock_load_env = self.load_env_patcher.start()
+
+        # Speed up tests by stubbing out expensive methods
+        self.load_tokens_patcher = patch(
+            'app.token_manager.TokenManager._load_tokens',
+            return_value={},
+        )
+        self.mock_load_tokens = self.load_tokens_patcher.start()
+
+        self.init_session_patcher = patch(
+            'app.token_manager.TokenManager._init_session_model',
+            return_value=MagicMock()
+        )
+        self.mock_init_session_model = self.init_session_patcher.start()
     
     def tearDown(self):
         """Clean up after each test."""
@@ -64,10 +77,13 @@ class TestTokenManager(unittest.TestCase):
         if os.path.exists(self.tokens_file):
             os.remove(self.tokens_file)
         self.load_env_patcher.stop()
+        self.load_tokens_patcher.stop()
+        self.init_session_patcher.stop()
 
     @patch("os.path.exists", return_value=False)
     def test_load_tokens_file_not_exists(self, mock_exists):
         """Test loading tokens when file doesn't exist."""
+        self.load_tokens_patcher.stop()
         manager = TokenManager()
         self.assertEqual(manager._tokens, {})
     
@@ -75,6 +91,7 @@ class TestTokenManager(unittest.TestCase):
     @patch("builtins.open", new_callable=mock_open, read_data='{"access_token": "test_token", "refresh_token": "test_refresh"}')
     def test_load_tokens_success(self, mock_file, mock_gcs_client):
         # Mock the GCS blob to simulate existence and download
+        self.load_tokens_patcher.stop()
         mock_blob = MagicMock()
         mock_blob.exists.return_value = True
         mock_blob.download_to_filename.return_value = None
@@ -103,6 +120,7 @@ class TestTokenManager(unittest.TestCase):
     @patch("builtins.open", side_effect=Exception("File error"))
     def test_load_tokens_exception(self, mock_file, mock_exists):
         """Test exception handling when loading tokens."""
+        self.load_tokens_patcher.stop()
         with patch('logging.Logger.exception') as mock_log:
             manager = TokenManager()
             self.assertEqual(manager._tokens, {})
@@ -139,15 +157,17 @@ class TestTokenManager(unittest.TestCase):
         
     def test_init_session_model(self):
         """Test initialization of the session model."""
+        self.init_session_patcher.stop()
         manager = TokenManager()
         session = manager._init_session_model()
         self.assertEqual(session.client_id, "test_app_id")
         self.assertEqual(session.redirect_uri, "test_redirect_uri")
     
-    @patch("app.token_manager.fyersModel.SessionModel.generate_authcode", 
+    @patch("app.token_manager.fyersModel.SessionModel.generate_authcode",
            return_value="https://test-auth-url")
     def test_get_auth_code_url(self, mock_generate):
         """Test generation of authorization URL."""
+        self.init_session_patcher.stop()
         manager = TokenManager()
         url = manager.get_auth_code_url()
         self.assertEqual(url, "https://test-auth-url")
@@ -188,6 +208,7 @@ class TestTokenManager(unittest.TestCase):
            return_value={"access_token": "new_token", "refresh_token": "new_refresh"})
     def test_generate_token_success(self, mock_generate):
         """Test successful token generation."""
+        self.init_session_patcher.stop()
         manager = TokenManager()
         token = manager.generate_token()
         self.assertEqual(token, "new_token")
@@ -209,6 +230,7 @@ class TestTokenManager(unittest.TestCase):
            return_value={"error": "Invalid auth code"})
     def test_generate_token_api_error(self, mock_generate):
         """Test token generation with API error response."""
+        self.init_session_patcher.stop()
         manager = TokenManager()
         with self.assertRaises(TokenManagerException):
             manager.generate_token()
@@ -218,6 +240,7 @@ class TestTokenManager(unittest.TestCase):
            side_effect=Exception("API connection error"))
     def test_generate_token_exception(self, mock_generate):
         """Test exception during token generation."""
+        self.init_session_patcher.stop()
         manager = TokenManager()
         with self.assertRaises(TokenManagerException):
             manager.generate_token()
