@@ -1,11 +1,10 @@
 import os
 import sys
 import pytest
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import MagicMock
 import pandas as pd
 import urllib.request
 from datetime import datetime, timedelta
-import logging
 import gspread
 
 # Ensure app package importability and set required environment variables

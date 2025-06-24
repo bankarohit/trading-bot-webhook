@@ -1,5 +1,4 @@
 import logging
-from app.auth import get_fyers
 import app.utils as utils
 
 if utils._symbol_cache is None:

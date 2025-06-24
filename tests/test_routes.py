@@ -2,7 +2,7 @@ import os
 import sys
 import unittest
 from unittest.mock import patch, MagicMock
-from flask import Flask, json
+from flask import Flask
 
 # Provide environment variables and import the blueprint
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

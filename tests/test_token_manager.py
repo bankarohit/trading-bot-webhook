@@ -2,10 +2,8 @@ import os
 import sys
 import unittest
 from unittest.mock import patch, mock_open, MagicMock
-import json
 import threading
 import hashlib
-import requests
 
 # Ensure package import and provide env vars for load_env_variables
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -19,7 +17,7 @@ os.environ.setdefault("FYERS_AUTH_CODE", "dummy")
 
 from app.token_manager import (
     TokenManager, get_token_manager,
-    TokenManagerException, AuthCodeMissingError, RefreshTokenError, EnvironmentVariableError
+    TokenManagerException, AuthCodeMissingError, RefreshTokenError
 )
 from app.token_manager import TOKENS_FILE
 
@@ -69,6 +67,13 @@ class TestTokenManager(unittest.TestCase):
             return_value=MagicMock()
         )
         self.mock_init_session_model = self.init_session_patcher.start()
+
+        # Patch heavy external dependencies
+        self.gcs_client_patcher = patch('google.cloud.storage.Client')
+        self.mock_gcs_client = self.gcs_client_patcher.start()
+
+        self.fyers_model_patcher = patch('app.token_manager.fyersModel.FyersModel')
+        self.mock_fyers_model = self.fyers_model_patcher.start()
     
     def tearDown(self):
         """Clean up after each test."""
@@ -79,6 +84,8 @@ class TestTokenManager(unittest.TestCase):
         self.load_env_patcher.stop()
         self.load_tokens_patcher.stop()
         self.init_session_patcher.stop()
+        self.gcs_client_patcher.stop()
+        self.fyers_model_patcher.stop()
 
     @patch("os.path.exists", return_value=False)
     def test_load_tokens_file_not_exists(self, mock_exists):

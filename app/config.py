@@ -32,4 +32,3 @@ def load_env_variables():
         raise EnvironmentError(
             f"Missing required environment variables: {', '.join(missing_vars)}"
         )
-    

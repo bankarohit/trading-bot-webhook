@@ -1,4 +1,4 @@
-import logging, os
+import logging
 from app.token_manager import (
     get_token_manager,
     AuthCodeMissingError,
