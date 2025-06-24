@@ -91,6 +91,9 @@ class TestTokenManager(unittest.TestCase):
     def test_load_tokens_file_not_exists(self, mock_exists):
         """Test loading tokens when file doesn't exist."""
         self.load_tokens_patcher.stop()
+        # Ensure the mocked GCS client returns a blob that does not exist
+        self.mock_gcs_client.return_value.bucket.return_value.blob.return_value.exists.return_value = False
+
         manager = TokenManager()
         self.assertEqual(manager._tokens, {})
     
