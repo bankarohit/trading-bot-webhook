@@ -3,7 +3,6 @@ import sys
 import unittest
 from unittest.mock import patch, MagicMock
 import pandas as pd
-import logging
 
 # Make sure we can import the app package and provide required env variables
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -19,8 +18,7 @@ from app.fyers_api import (
     _validate_order_params,
     _get_default_qty,
     get_ltp,
-    place_order,
-    valid_product_types
+    place_order
 )
 
 class TestFyersAPI(unittest.TestCase):

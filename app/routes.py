@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from app.logging_config import get_request_id
 from app.fyers_api import get_ltp, place_order, _validate_order_params
-from app.utils import log_trade_to_sheet, get_symbol_from_csv, get_gsheet_client
+from app.utils import log_trade_to_sheet, get_symbol_from_csv
 from app.auth import (
     get_fyers,
     get_auth_code_url,
