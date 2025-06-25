@@ -1,3 +1,11 @@
+
+"""Application entry point for the trading bot webhook service.
+
+This module prepares the environment, sets up logging and creates the
+Flask application instance. When run directly it starts the server on
+``0.0.0.0:8080`` so that TradingView alerts can be processed.
+"""
+
 from app import create_app
 from app.config import load_env_variables
 from app.logging_config import configure_logging
