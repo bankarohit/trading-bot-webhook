@@ -82,5 +82,43 @@ class TestAuth(unittest.TestCase):
         with self.assertRaises(Exception):
             auth.get_fyers()
 
+    @patch("app.auth.get_token_manager")
+    def test_get_auth_code_url_exception(self, mock_get_mgr):
+        manager = MagicMock()
+        manager.get_auth_code_url.side_effect = Exception("boom")
+        mock_get_mgr.return_value = manager
+
+        with self.assertRaises(Exception):
+            auth.get_auth_code_url()
+
+    @patch("app.auth.get_token_manager")
+    def test_refresh_access_token_general_exception(self, mock_get_mgr):
+        manager = MagicMock()
+        manager.refresh_token.side_effect = Exception("oops")
+        mock_get_mgr.return_value = manager
+
+        with self.assertRaises(Exception):
+            auth.refresh_access_token()
+
+    @patch("app.auth.get_token_manager")
+    def test_generate_access_token_none(self, mock_get_mgr):
+        manager = MagicMock()
+        manager.generate_token.return_value = None
+        mock_get_mgr.return_value = manager
+
+        token = auth.generate_access_token()
+        self.assertIsNone(token)
+        manager.generate_token.assert_called_once()
+
+    @patch("app.auth.get_token_manager")
+    def test_generate_access_token_exception(self, mock_get_mgr):
+        manager = MagicMock()
+        manager.generate_token.side_effect = Exception("err")
+        mock_get_mgr.return_value = manager
+
+        token = auth.generate_access_token()
+        self.assertIsNone(token)
+        manager.generate_token.assert_called_once()
+
 if __name__ == '__main__':
     unittest.main()

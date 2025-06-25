@@ -69,3 +69,12 @@ def test_configure_logging_with_log_file(mock_basic, mock_get_logger):
     assert mock_basic.call_args.kwargs["level"] == logging.INFO
     root_logger.addFilter.assert_called_once()
     handler.addFilter.assert_called_once()
+
+
+def test_request_id_filter_adds_request_id():
+    filt = RequestIdFilter()
+    record = logging.LogRecord("name", logging.INFO, __file__, 0, "msg", None, None)
+    with patch("app.logging_config.get_request_id", return_value="abc"):
+        result = filt.filter(record)
+    assert result is True
+    assert getattr(record, "request_id") == "abc"
