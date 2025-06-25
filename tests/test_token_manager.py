@@ -134,7 +134,33 @@ class TestTokenManager(unittest.TestCase):
         with patch('logging.Logger.exception') as mock_log:
             manager = TokenManager()
             self.assertEqual(manager._tokens, {})
-            mock_log.assert_called_once()
+            self.assertEqual(mock_log.call_count, 2)
+
+    @patch("os.path.exists", return_value=True)
+    @patch("builtins.open", new_callable=mock_open, read_data='{"access_token": "local_token", "refresh_token": "local_refresh"}')
+    def test_load_tokens_fallback_when_blob_missing(self, mock_file, mock_exists):
+        """Load tokens from local file if GCS blob is missing."""
+        self.load_tokens_patcher.stop()
+        self.mock_gcs_client.return_value.bucket.return_value.blob.return_value.exists.return_value = False
+
+        manager = TokenManager()
+
+        self.assertEqual(manager._tokens["access_token"], "local_token")
+        self.assertEqual(manager._tokens["refresh_token"], "local_refresh")
+        mock_file.assert_called_with("tokens.json", "r")
+
+    @patch("google.cloud.storage.Client", side_effect=Exception("GCS error"))
+    @patch("os.path.exists", return_value=True)
+    @patch("builtins.open", new_callable=mock_open, read_data='{"access_token": "local_token", "refresh_token": "local_refresh"}')
+    def test_load_tokens_fallback_on_gcs_error(self, mock_file, mock_exists, mock_gcs_client):
+        """Load tokens from local file when GCS client raises an error."""
+        self.load_tokens_patcher.stop()
+
+        manager = TokenManager()
+
+        self.assertEqual(manager._tokens["access_token"], "local_token")
+        self.assertEqual(manager._tokens["refresh_token"], "local_refresh")
+        mock_file.assert_called_with("tokens.json", "r")
     
     @patch("builtins.open", new_callable=mock_open)
     def test_save_tokens_success(self, mock_file):

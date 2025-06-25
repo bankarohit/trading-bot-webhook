@@ -91,6 +91,16 @@ class TokenManager:
                     gcs_path)
         except Exception as e:
             logger.exception("GCS load failed: %s", e)
+        # Fallback to local file if available
+        try:
+            if os.path.exists(self.tokens_file):
+                with open(self.tokens_file, "r") as f:
+                    logger.info("Loaded tokens from local file %s", self.tokens_file)
+                    return json.load(f)
+            else:
+                logger.warning("Local tokens file %s not found, starting fresh.", self.tokens_file)
+        except Exception as e:
+            logger.exception("Local file load failed: %s", e)
         return {}
 
     def _save_tokens(self):
