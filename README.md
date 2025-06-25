@@ -57,6 +57,15 @@ GCS_BUCKET_NAME=your_bucket
 GCS_TOKENS_FILE=tokens/tokens.json
 ```
 
+Optionally you can control logging by setting:
+
+```env
+# defaults to INFO
+LOG_LEVEL=DEBUG
+# write logs to a file instead of stdout
+LOG_FILE=/var/log/webhook.log
+```
+
 ### Google Service Account
 
 1. Create a service account in Google Cloud and enable the **Sheets API** and **Cloud Storage**.
