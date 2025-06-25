@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 logger = logging.getLogger(__name__)
 
 def load_env_variables():
+    """Load required environment variables and verify they are present."""
+
     load_dotenv()
     required_vars = [
         "FYERS_APP_ID",
