@@ -19,6 +19,15 @@ webhook_bp = Blueprint("webhook", __name__)
 
 @webhook_bp.route("/readyz", methods=["GET"])
 def health_check():
+    """Perform a readiness check for the service.
+
+    This endpoint verifies that a valid Fyers access token is available and
+    that the Fyers API can be reached. It returns a JSON object with the
+    current token status and a snippet of the user profile.
+
+    **Returns**: ``200`` with status information if the check succeeds or
+    ``500`` with an error message otherwise.
+    """
     try:
         # 1. Check Access Token
         token = get_access_token()
@@ -50,6 +59,14 @@ def health_check():
 
 @webhook_bp.route("/refresh-token", methods=["POST"])
 def refresh_token():
+    """Refresh the current Fyers access token.
+
+    **Request**: No payload is required.
+
+    **Returns**: ``200`` with ``{"success": True}`` if the token was refreshed
+    successfully, ``401`` if refreshing failed, or ``500`` for unexpected
+    errors.
+    """
     try:
         token = refresh_access_token()
         if token:
@@ -64,6 +81,13 @@ def refresh_token():
     
 @webhook_bp.route("/generate-token", methods=["POST"])
 def generate_token():
+    """Generate a new Fyers access token using the stored auth code.
+
+    **Request**: No payload is required.
+
+    **Returns**: ``200`` on success with ``{"success": True}``, ``401`` if token
+    generation fails, or ``500`` for any server error.
+    """
     try:
         token = generate_access_token()
         if token:
@@ -78,6 +102,13 @@ def generate_token():
 
 @webhook_bp.route("/auth-url", methods=["GET"])
 def get_auth_url():
+    """Return the URL that users must visit to authorize the application.
+
+    **Request**: none.
+
+    **Returns**: ``200`` with ``{"auth_url": <url>}`` if successful or ``500``
+    if the URL could not be generated.
+    """
     try:
         url = get_auth_code_url()
         if not url:
@@ -92,6 +123,34 @@ def get_auth_url():
 
 @webhook_bp.route("/webhook", methods=["POST"])
 def webhook():
+    """Handle TradingView alerts to place option orders via Fyers.
+
+    **Request JSON** should contain at least the following fields::
+
+        {
+            "token": "<secret>",
+            "symbol": "<underlying>",
+            "strikeprice": <int>,
+            "optionType": "CE"|"PE",
+            "expiry": "WEEKLY"|"MONTHLY",
+            "action": "BUY"|"SELL",
+            "qty": <int>,
+            "sl": <float>,
+            "tp": <float>,
+            "productType": "BO" | "CO" | ...
+        }
+
+    ``sl``, ``tp`` and ``productType`` are optional. If ``sl`` and ``tp`` are not
+    supplied they will be derived from the latest traded price.
+
+    **Responses**:
+    - ``200`` when the order is placed successfully with details in the
+      response body.
+    - ``400`` for validation errors.
+    - ``401`` if the secret token is invalid.
+    - ``403`` if the symbol cannot be resolved.
+    - ``500`` for any unexpected failure.
+    """
     try:
         data = request.get_json()
 
