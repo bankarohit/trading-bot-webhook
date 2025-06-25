@@ -238,6 +238,16 @@ class TestTokenManager(unittest.TestCase):
         self.assertEqual(token, "new_token")
         mock_refresh.assert_called_once()
         mock_generate.assert_called_once()
+
+    @patch("app.token_manager.TokenManager.generate_token", return_value="gen_token")
+    @patch("app.token_manager.TokenManager.refresh_token", return_value=None)
+    def test_get_access_token_refresh_none(self, mock_refresh, mock_generate):
+        manager = TokenManager()
+        manager._tokens = {}
+        token = manager.get_access_token()
+        self.assertEqual(token, "gen_token")
+        mock_refresh.assert_called_once()
+        mock_generate.assert_called_once()
     
     @patch.dict(os.environ, {"FYERS_AUTH_CODE": "test_auth_code"})
     @patch("app.token_manager.fyersModel.SessionModel.generate_token", 
@@ -270,6 +280,17 @@ class TestTokenManager(unittest.TestCase):
         manager = TokenManager()
         with self.assertRaises(TokenManagerException):
             manager.generate_token()
+
+    @patch.dict(os.environ, {"FYERS_AUTH_CODE": "test_auth_code"})
+    @patch("app.token_manager.TokenManager._save_tokens")
+    @patch("app.token_manager.fyersModel.SessionModel.generate_token", return_value={"access_token": "new_token"})
+    def test_generate_token_without_refresh(self, mock_generate, mock_save):
+        self.init_session_patcher.stop()
+        manager = TokenManager()
+        token = manager.generate_token()
+        self.assertEqual(token, "new_token")
+        self.assertEqual(manager._tokens.get("refresh_token"), None)
+        mock_save.assert_called_once()
     
     @patch.dict(os.environ, {"FYERS_AUTH_CODE": "test_auth_code"})
     @patch("app.token_manager.fyersModel.SessionModel.generate_token", 
@@ -328,7 +349,7 @@ class TestTokenManager(unittest.TestCase):
         # Calculate expected hash and verify
         expected_hash = hashlib.sha256(f"test_app_id:test_secret_id".encode()).hexdigest()
         self.assertEqual(payload["appIdHash"], expected_hash)
-    
+
     @patch("requests.post")
     def test_refresh_token_api_error(self, mock_post):
         """Test token refresh with API error response."""
@@ -345,6 +366,22 @@ class TestTokenManager(unittest.TestCase):
         
         with self.assertRaises(RefreshTokenError):
             manager.refresh_token()
+
+    @patch("requests.post")
+    def test_refresh_token_no_refresh_returned(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"s": "ok", "access_token": "new_token"}
+        mock_post.return_value = mock_response
+
+        manager = TokenManager()
+        manager._tokens = {"refresh_token": "old_refresh"}
+
+        with patch.object(manager, "_save_tokens") as mock_save:
+            token = manager.refresh_token()
+
+        self.assertEqual(token, "new_token")
+        self.assertEqual(manager._tokens["refresh_token"], "old_refresh")
+        mock_save.assert_called_once()
     
     @patch("requests.post", side_effect=Exception("Network error"))
     def test_refresh_token_exception(self, mock_post):

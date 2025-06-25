@@ -211,5 +211,165 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(data["order_response"]["id"], "order123")
         mock_log_sheet.assert_called_once()
 
+    @patch("app.routes.generate_access_token", return_value="tok")
+    def test_generate_token_success(self, mock_gen):
+        response = self.client.post("/generate-token")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()["success"])
+
+    @patch("app.routes.generate_access_token", return_value=None)
+    def test_generate_token_none(self, mock_gen):
+        response = self.client.post("/generate-token")
+        self.assertEqual(response.status_code, 401)
+        self.assertFalse(response.get_json()["success"])
+
+    def test_webhook_empty_json(self):
+        response = self.client.post("/webhook", json={})
+        self.assertEqual(response.status_code, 400)
+
+    @patch("app.routes._validate_order_params", side_effect=Exception("bad"))
+    @patch("app.routes.log_trade_to_sheet", return_value=True)
+    @patch("app.routes.place_order")
+    @patch("app.routes.get_ltp", return_value=200)
+    @patch("app.routes.get_fyers")
+    @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
+    @patch("app.routes.os.getenv", return_value="secret")
+    def test_webhook_unhandled_exception(self, mock_env, mock_resolve, mock_fyers, mock_ltp, mock_order, mock_log, mock_validate):
+        mock_fyers.return_value = MagicMock()
+        payload = {
+            "token": "secret",
+            "symbol": "NIFTY",
+            "strikeprice": 24500,
+            "optionType": "CE",
+            "expiry": "WEEKLY",
+            "action": "BUY",
+            "qty": 75
+        }
+        response = self.client.post("/webhook", json=payload)
+        self.assertEqual(response.status_code, 500)
+
+    @patch("app.routes.get_fyers")
+    @patch("app.routes.get_access_token")
+    def test_health_check_profile_error(self, mock_get_token, mock_get_fyers):
+        mock_get_token.return_value = "valid"
+        mock_fyers = MagicMock()
+        mock_fyers.get_profile.return_value = {"s": "error"}
+        mock_get_fyers.return_value = mock_fyers
+
+        response = self.client.get("/readyz")
+        self.assertEqual(response.status_code, 500)
+
+    @patch("app.routes.get_fyers")
+    @patch("app.routes.get_access_token")
+    def test_health_check_exception(self, mock_get_token, mock_get_fyers):
+        mock_get_token.return_value = "valid"
+        mock_get_fyers.side_effect = Exception("boom")
+
+        response = self.client.get("/readyz")
+        self.assertEqual(response.status_code, 500)
+
+    @patch("app.routes.refresh_access_token", side_effect=Exception("err"))
+    def test_refresh_token_exception(self, mock_refresh):
+        response = self.client.post("/refresh-token")
+        self.assertEqual(response.status_code, 500)
+        self.assertFalse(response.get_json()["success"])
+
+    @patch("app.routes.generate_access_token", side_effect=Exception("err"))
+    def test_generate_token_exception(self, mock_generate):
+        response = self.client.post("/generate-token")
+        self.assertEqual(response.status_code, 500)
+        self.assertFalse(response.get_json()["success"])
+
+    @patch("app.routes.get_auth_code_url", return_value=None)
+    def test_get_auth_url_none(self, mock_url):
+        response = self.client.get("/auth-url")
+        self.assertEqual(response.status_code, 500)
+        self.assertFalse(response.get_json()["success"])
+
+    @patch("app.routes.get_auth_code_url", side_effect=Exception("boom"))
+    def test_get_auth_url_exception(self, mock_url):
+        response = self.client.get("/auth-url")
+        self.assertEqual(response.status_code, 500)
+        self.assertFalse(response.get_json()["success"])
+
+    @patch("app.routes.log_trade_to_sheet", return_value=True)
+    @patch("app.routes.get_fyers", return_value=None)
+    @patch("app.routes.get_ltp", return_value=200)
+    @patch("app.routes.place_order")
+    @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
+    @patch("app.routes.os.getenv", return_value="secret")
+    def test_webhook_fyers_init_fail(self, mock_env, mock_resolve, mock_order, mock_ltp, mock_fyers, mock_log):
+        payload = {
+            "token": "secret",
+            "symbol": "NIFTY",
+            "strikeprice": 24500,
+            "optionType": "CE",
+            "expiry": "WEEKLY",
+            "action": "BUY",
+            "qty": 75
+        }
+        response = self.client.post("/webhook", json=payload)
+        self.assertEqual(response.status_code, 500)
+
+    @patch("app.routes.log_trade_to_sheet", return_value=True)
+    @patch("app.routes.place_order", return_value={"s": "error", "message": "bad"})
+    @patch("app.routes.get_ltp", return_value=200)
+    @patch("app.routes.get_fyers")
+    @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
+    @patch("app.routes.os.getenv", return_value="secret")
+    def test_webhook_order_api_error(self, mock_env, mock_resolve, mock_fyers, mock_ltp, mock_order, mock_log):
+        mock_fyers.return_value = MagicMock()
+        payload = {
+            "token": "secret",
+            "symbol": "NIFTY",
+            "strikeprice": 24500,
+            "optionType": "CE",
+            "expiry": "WEEKLY",
+            "action": "BUY",
+            "qty": 75
+        }
+        response = self.client.post("/webhook", json=payload)
+        self.assertEqual(response.status_code, 500)
+
+    @patch("app.routes.log_trade_to_sheet", return_value=True)
+    @patch("app.routes.place_order", side_effect=Exception("fail"))
+    @patch("app.routes.get_ltp", return_value=200)
+    @patch("app.routes.get_fyers")
+    @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
+    @patch("app.routes.os.getenv", return_value="secret")
+    def test_webhook_order_exception(self, mock_env, mock_resolve, mock_fyers, mock_ltp, mock_order, mock_log):
+        mock_fyers.return_value = MagicMock()
+        payload = {
+            "token": "secret",
+            "symbol": "NIFTY",
+            "strikeprice": 24500,
+            "optionType": "CE",
+            "expiry": "WEEKLY",
+            "action": "BUY",
+            "qty": 75
+        }
+        response = self.client.post("/webhook", json=payload)
+        self.assertEqual(response.status_code, 500)
+
+    @patch("app.routes.log_trade_to_sheet", return_value=True)
+    @patch("app.routes.place_order", return_value={"s": "ok"})
+    @patch("app.routes.get_ltp", side_effect=Exception("ltp"))
+    @patch("app.routes.get_fyers")
+    @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
+    @patch("app.routes.os.getenv", return_value="secret")
+    def test_webhook_get_ltp_exception(self, mock_env, mock_resolve, mock_fyers, mock_ltp, mock_order, mock_log):
+        mock_fyers.return_value = MagicMock()
+        payload = {
+            "token": "secret",
+            "symbol": "NIFTY",
+            "strikeprice": 24500,
+            "optionType": "CE",
+            "expiry": "WEEKLY",
+            "action": "BUY",
+            "qty": 75
+        }
+        response = self.client.post("/webhook", json=payload)
+        self.assertEqual(response.status_code, 200)
+
 if __name__ == '__main__':
     unittest.main()
