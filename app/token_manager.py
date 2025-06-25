@@ -1,3 +1,11 @@
+"""Handle Fyers API authentication tokens.
+
+This module manages access and refresh tokens for the Fyers trading API. It
+supports persisting tokens to Google Cloud Storage or a local ``tokens.json``
+file and exposes a thread-safe :class:`TokenManager` singleton through
+``get_token_manager``.
+"""
+
 import os
 import json
 import hashlib
