@@ -53,7 +53,12 @@ def get_token_manager():
 
 class TokenManager:
     def __init__(self, tokens_file=TOKENS_FILE):
-        """Initialize the TokenManager with the specified tokens file."""
+        """Initialize the TokenManager and prepare the environment.
+
+        Environment variables are validated and any previously saved tokens are
+        loaded from Google Cloud Storage or the local ``tokens_file``. A Fyers
+        session model is also initialized.
+        """
         # This will validate all required environment variables
         load_env_variables()  # This already calls load_dotenv() and validates variables
 
@@ -72,6 +77,7 @@ class TokenManager:
         self._lock = threading.RLock()  # Reentrant lock for thread safety
     
     def _load_tokens(self):
+        """Retrieve tokens from GCS first, then fall back to the local file."""
         try:
             storage_client = storage.Client()
             bucket = storage_client.bucket(os.getenv("GCS_BUCKET_NAME"))
