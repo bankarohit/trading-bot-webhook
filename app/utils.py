@@ -1,3 +1,11 @@
+"""Utility helpers for loading the Fyers symbol master and interacting
+with Google Sheets.
+
+The module caches the derivatives symbol master CSV from Fyers and
+provides small helper functions for logging trades and updating their
+status in a Google Sheet.
+"""
+
 from datetime import datetime
 import os
 import pandas as pd
@@ -32,6 +40,15 @@ _symbol_cache = None
 _gsheet_client = None
 
 def get_gsheet_client():
+    """Return a cached Google Sheets client.
+
+    The first invocation creates a :class:`gspread.Client` using the
+    service account credentials specified by :data:`CREDS_FILE`. Subsequent
+    calls return the cached instance.
+
+    Returns:
+        gspread.Client: Authorised Sheets client.
+    """
     global _gsheet_client
     if _gsheet_client is None:
         creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
@@ -39,6 +56,12 @@ def get_gsheet_client():
     return _gsheet_client
 
 def load_symbol_master():
+    """Download the Fyers symbol master CSV and cache it.
+
+    The CSV pointed to by :data:`symbol_master_url` is loaded into a
+    :class:`pandas.DataFrame` stored in :data:`_symbol_cache`. Any errors are
+    logged and an empty DataFrame is cached.
+    """
     global _symbol_cache
     try:
         context = ssl.create_default_context(cafile=certifi.where())
@@ -55,6 +78,17 @@ def load_symbol_master():
         _symbol_cache = pd.DataFrame(columns=symbol_master_columns)
 
 def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
+    """Return the Fyers ticker symbol from the cached symbol master.
+
+    Parameters:
+        symbol (str): The underlying symbol, e.g. ``NIFTY``.
+        strike_price (float | int | str): Option strike price.
+        option_type (str): ``CE`` or ``PE``.
+        expiry_type (str): ``WEEKLY`` or ``MONTHLY``.
+
+    Returns:
+        str | None: Matching ticker symbol or ``None`` if not found.
+    """
     global _symbol_cache
     try:
         logger.debug(f"Requested: symbol={symbol.upper()}, strike_price={round(float(strike_price))}, option_type={option_type.upper()}, expiry_type={expiry_type}")
@@ -97,12 +131,20 @@ def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
         return None
 
 def log_trade_to_sheet(symbol, action, qty, ltp, sl, tp, sheet_name="Trades", retries=3):
-    """
-    Logs a trade entry to Google Sheets with a unique UUID for tracking.
-    
+    """Append a new trade row to the Google Sheet.
+
+    Parameters:
+        symbol (str): Trading symbol for the order.
+        action (str): Direction of the trade (``BUY`` or ``SELL``).
+        qty (int): Quantity traded.
+        ltp (float): Last traded price at entry.
+        sl (float): Stop loss value.
+        tp (float): Target price.
+        sheet_name (str, optional): Worksheet name. Defaults to ``"Trades"``.
+        retries (int, optional): Number of times to retry on API errors.
+
     Returns:
-    - True if logged successfully.
-    - False if logging fails.
+        bool: ``True`` if the trade was logged successfully, ``False`` otherwise.
     """
     trade_id = str(uuid.uuid4())
     try:
@@ -131,6 +173,17 @@ def log_trade_to_sheet(symbol, action, qty, ltp, sl, tp, sheet_name="Trades", re
         return False
     
 def get_open_trades_from_sheet(_client, sheet_name="Trades"):
+    """Fetch rows where the trade status is ``OPEN``.
+
+    Parameters:
+        _client (gspread.Client): Authorised Sheets client.
+        sheet_name (str, optional): Name of the worksheet. Defaults to
+            "Trades".
+
+    Returns:
+        list[list[str]]: Rows for all open trades. Empty list if an
+        error occurs.
+    """
     try:
         sheet = _client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet(sheet_name)
         rows = sheet.get_all_values()
@@ -144,6 +197,19 @@ def get_open_trades_from_sheet(_client, sheet_name="Trades"):
         return []
 
 def update_trade_status_in_sheet(_client, trade_id, status, exit_price, reason="", sheet_name="Trades"):
+    """Update the status of a trade in the Google Sheet.
+
+    Parameters:
+        _client (gspread.Client): Authorised Sheets client.
+        trade_id (str): Identifier generated when the trade was logged.
+        status (str): New status for the trade, e.g. ``CLOSED``.
+        exit_price (float | str): Price at which the trade was closed.
+        reason (str, optional): Reason for closing the trade.
+        sheet_name (str, optional): Worksheet name. Defaults to ``"Trades"``.
+
+    Returns:
+        bool: ``True`` if the update succeeded, ``False`` otherwise.
+    """
     try:
         sheet = _client.open_by_key(os.getenv("GOOGLE_SHEET_ID")).worksheet(sheet_name)
         rows = sheet.get_all_values()
