@@ -565,3 +565,11 @@ def test_update_trade_status_in_sheet_custom_sheet(monkeypatch):
     mock_sheet_instance.worksheet.assert_called_once_with("TestSheet")
     assert mock_sheet.update_cell.call_count >= 4  # At least 4 calls should be made
     assert result is True
+
+
+def test_module_locks_exist():
+    assert hasattr(app.utils, "_gsheet_lock")
+    assert hasattr(app.utils._gsheet_lock, "acquire")
+    assert hasattr(app.utils, "_symbol_lock")
+    assert hasattr(app.utils._symbol_lock, "acquire")
+
