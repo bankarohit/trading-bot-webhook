@@ -22,3 +22,11 @@ tokens.json
 
 # Coverage reports
 .coverage
+
+
+.DS_Store
+secrets
+venv
+test_ltp.py
+diagnose_gsheet.py
+
