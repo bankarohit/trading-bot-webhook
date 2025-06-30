@@ -102,6 +102,12 @@ You can deploy the container to Google Cloud Run or any other container platform
 ```bash
 gcloud builds submit --config cloudbuild.yaml
 ```
+The container runs using **Gunicorn** with the command:
+
+```bash
+gunicorn -b 0.0.0.0:8080 main:app
+```
+
 
 ## Sample Webhook Payload
 

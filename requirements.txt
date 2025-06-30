@@ -12,3 +12,4 @@ gcloud
 yapf
 pytz
 google-cloud-storage
+gunicorn
