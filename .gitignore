@@ -19,3 +19,6 @@ tokens.json
 # IDE settings
 .vscode/
 .idea/
+
+# Coverage reports
+.coverage
