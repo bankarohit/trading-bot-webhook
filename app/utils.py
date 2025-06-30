@@ -13,6 +13,7 @@ import re
 import time
 import gspread
 import logging
+import threading
 from oauth2client.service_account import ServiceAccountCredentials
 from google.auth.exceptions import TransportError
 import ssl
@@ -38,6 +39,8 @@ CREDS_FILE = "/secrets/service_account.json"
 
 _symbol_cache = None
 _gsheet_client = None
+_gsheet_lock = threading.Lock()
+_symbol_lock = threading.Lock()
 
 def get_gsheet_client():
     """Return a cached Google Sheets client.
@@ -51,8 +54,11 @@ def get_gsheet_client():
     """
     global _gsheet_client
     if _gsheet_client is None:
-        creds = ServiceAccountCredentials.from_json_keyfile_name(CREDS_FILE, SCOPE)
-        _gsheet_client = gspread.authorize(creds)
+        with _gsheet_lock:
+            if _gsheet_client is None:
+                creds = ServiceAccountCredentials.from_json_keyfile_name(
+                    CREDS_FILE, SCOPE)
+                _gsheet_client = gspread.authorize(creds)
     return _gsheet_client
 
 def load_symbol_master():
@@ -63,19 +69,25 @@ def load_symbol_master():
     logged and an empty DataFrame is cached.
     """
     global _symbol_cache
-    try:
-        context = ssl.create_default_context(cafile=certifi.where())
-        with urllib.request.urlopen(symbol_master_url, context=context) as resp:
-            data = resp.read()
-        _symbol_cache = pd.read_csv(
-            io.BytesIO(data),
-            header=None,
-            names=symbol_master_columns,
-        )
-        logger.debug("Loaded symbol master into memory")
-    except Exception as e:
-        logger.error(f"Failed to load symbol master: {e}")
-        _symbol_cache = pd.DataFrame(columns=symbol_master_columns)
+    if _symbol_cache is not None:
+        return
+    with _symbol_lock:
+        if _symbol_cache is not None:
+            return
+        try:
+            context = ssl.create_default_context(cafile=certifi.where())
+            with urllib.request.urlopen(symbol_master_url,
+                                       context=context) as resp:
+                data = resp.read()
+            _symbol_cache = pd.read_csv(
+                io.BytesIO(data),
+                header=None,
+                names=symbol_master_columns,
+            )
+            logger.debug("Loaded symbol master into memory")
+        except Exception as e:
+            logger.error(f"Failed to load symbol master: {e}")
+            _symbol_cache = pd.DataFrame(columns=symbol_master_columns)
 
 def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
     """Return the Fyers ticker symbol from the cached symbol master.
