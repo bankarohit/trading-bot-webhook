@@ -114,6 +114,50 @@ def get_ltp(symbol, fyersModelInstance):
         logger.exception(f"Exception in get_ltp for {symbol}: {str(e)}")
         return {"code": -1, "message": str(e)}
 
+
+def has_short_position(symbol, fyersModelInstance):
+    """Return ``True`` if there is an open short position for ``symbol``.
+
+    The function calls ``fyersModelInstance.positions()`` and inspects the
+    returned ``netPositions`` list. A position is considered *short* when the
+    ``netQty`` is negative or the ``side`` field equals ``-1``.
+
+    Parameters
+    ----------
+    symbol : str
+        Fyers instrument ticker to check.
+    fyersModelInstance : object
+        Instance of :class:`fyers_apiv3.fyersModel.FyersModel` or a compatible
+        mock with ``positions`` method.
+
+    Returns
+    -------
+    bool
+        ``True`` if a matching short position exists, otherwise ``False``. If an
+        exception occurs, ``False`` is returned and the error is logged.
+    """
+
+    try:
+        response = fyersModelInstance.positions()
+        logger.debug(f"Positions response: {response}")
+        if response.get("s") != "ok":
+            logger.warning(f"Positions API returned error: {response}")
+            return False
+
+        for pos in response.get("netPositions", []):
+            if pos.get("symbol") == symbol:
+                try:
+                    net_qty = float(pos.get("netQty", 0))
+                except Exception:
+                    net_qty = 0
+                side = pos.get("side")
+                if net_qty < 0 or side == -1:
+                    return True
+        return False
+    except Exception as e:
+        logger.exception(f"Exception in has_short_position for {symbol}: {str(e)}")
+        return False
+
 def place_order(symbol, qty, action, sl, tp, productType, fyersModelInstance):
     """Place a market order with Fyers after validating parameters.
 
