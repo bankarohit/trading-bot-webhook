@@ -108,13 +108,15 @@ gunicorn -b 0.0.0.0:8080 main:app
 
 ## Sample Webhook Payload
 
+The `expiry` field should be either `"WEEKLY"` or `"MONTHLY"`.
+
 ```json
 {
   "token": "<WEBHOOK_SECRET>",
   "symbol": "NSE:BANKNIFTY",
   "strikeprice": 48400,
   "optionType": "PE",
-  "expiry": "2025-05-22",
+  "expiry": "WEEKLY",
   "action": "SELL",
   "qty": 25,
   "sl": 50,
