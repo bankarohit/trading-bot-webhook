@@ -10,7 +10,6 @@ os.environ.setdefault("FYERS_APP_ID", "dummy")
 os.environ.setdefault("FYERS_SECRET_ID", "dummy")
 os.environ.setdefault("FYERS_REDIRECT_URI", "http://localhost")
 os.environ.setdefault("WEBHOOK_SECRET_TOKEN", "dummy")
-os.environ.setdefault("GOOGLE_SHEET_ID", "dummy")
 os.environ.setdefault("FYERS_PIN", "0000")
 os.environ.setdefault("FYERS_AUTH_CODE", "dummy")
 

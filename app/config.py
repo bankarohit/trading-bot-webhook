@@ -13,7 +13,6 @@ def load_env_variables():
         "FYERS_SECRET_ID",
         "FYERS_REDIRECT_URI",
         "WEBHOOK_SECRET_TOKEN",
-        "GOOGLE_SHEET_ID",
         "FYERS_PIN",
         "FYERS_AUTH_CODE",
     ]

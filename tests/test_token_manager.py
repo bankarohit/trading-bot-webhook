@@ -11,7 +11,6 @@ os.environ.setdefault("FYERS_APP_ID", "dummy")
 os.environ.setdefault("FYERS_SECRET_ID", "dummy")
 os.environ.setdefault("FYERS_REDIRECT_URI", "http://localhost")
 os.environ.setdefault("WEBHOOK_SECRET_TOKEN", "dummy")
-os.environ.setdefault("GOOGLE_SHEET_ID", "dummy")
 os.environ.setdefault("FYERS_PIN", "0000")
 os.environ.setdefault("FYERS_AUTH_CODE", "dummy")
 
@@ -36,7 +35,6 @@ class TestTokenManager(unittest.TestCase):
             "FYERS_SECRET_ID": "test_secret_id",
             "FYERS_REDIRECT_URI": "test_redirect_uri",
             "WEBHOOK_SECRET_TOKEN": "test_webhook_token",
-            "GOOGLE_SHEET_ID": "test_sheet_id",
             "FYERS_PIN": "1234",
             "FYERS_AUTH_CODE": "dummy_auth_code"
         })
