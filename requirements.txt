@@ -11,3 +11,4 @@ yapf
 pytz
 google-cloud-storage
 gunicorn
+uvicorn

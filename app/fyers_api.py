@@ -7,6 +7,7 @@ tests.
 """
 
 import logging
+import inspect
 import app.utils as utils
 
 if utils._symbol_cache is None:
@@ -15,6 +16,7 @@ if utils._symbol_cache is None:
 logger = logging.getLogger(__name__)
 
 valid_product_types = {"INTRADAY", "CNC", "DELIVERY", "BO", "CO"}
+
 
 def _validate_order_params(symbol, qty, sl, tp, productType):
     """Sanitise and fill default order parameters.
@@ -53,6 +55,7 @@ def _validate_order_params(symbol, qty, sl, tp, productType):
         productType = "BO"
     return qty, sl, tp, productType
 
+
 def _get_default_qty(symbol):
     """Return the lot size for a symbol from the loaded symbol master.
 
@@ -79,10 +82,13 @@ def _get_default_qty(symbol):
             logger.warning(f"Invalid lot size for symbol {symbol}: {e}")
             return 1
     else:
-        logger.warning(f"No lot size found for {symbol} in symbol master, defaulting to 1")
+        logger.warning(
+            f"No lot size found for {symbol} in symbol master, defaulting to 1"
+        )
         return 1
 
-def get_ltp(symbol, fyersModelInstance):
+
+async def get_ltp(symbol, fyersModelInstance):
     """Fetch the latest traded price for a symbol from Fyers.
 
     Parameters
@@ -104,7 +110,10 @@ def get_ltp(symbol, fyersModelInstance):
 
     try:
         response = fyersModelInstance.quotes({"symbols": symbol})
-        if response.get("s") == "ok" and response.get("d") and len(response["d"]) > 0:
+        if inspect.iscoroutine(response):
+            response = await response
+        if response.get("s") == "ok" and response.get("d") and len(
+                response["d"]) > 0:
             return response.get("d", [{}])[0].get("v", {}).get("lp")
         else:
             logger.warning(f"No valid price data for symbol {symbol}")
@@ -115,7 +124,7 @@ def get_ltp(symbol, fyersModelInstance):
         return {"code": -1, "message": str(e)}
 
 
-def has_short_position(symbol, fyersModelInstance):
+async def has_short_position(symbol, fyersModelInstance):
     """Return ``True`` if there is an open short position for ``symbol``.
 
     The function calls ``fyersModelInstance.positions()`` and inspects the
@@ -139,6 +148,8 @@ def has_short_position(symbol, fyersModelInstance):
 
     try:
         response = fyersModelInstance.positions()
+        if inspect.iscoroutine(response):
+            response = await response
         logger.debug(f"Positions response: {response}")
         if response.get("s") != "ok":
             logger.warning(f"Positions API returned error: {response}")
@@ -155,10 +166,13 @@ def has_short_position(symbol, fyersModelInstance):
                     return True
         return False
     except Exception as e:
-        logger.exception(f"Exception in has_short_position for {symbol}: {str(e)}")
+        logger.exception(
+            f"Exception in has_short_position for {symbol}: {str(e)}")
         return False
 
-def place_order(symbol, qty, action, sl, tp, productType, fyersModelInstance):
+
+async def place_order(symbol, qty, action, sl, tp, productType,
+                      fyersModelInstance):
     """Place a market order with Fyers after validating parameters.
 
     Parameters
@@ -188,7 +202,8 @@ def place_order(symbol, qty, action, sl, tp, productType, fyersModelInstance):
         exception a dictionary ``{"code": -1, "message": str(e)}`` is returned.
     """
 
-    qty, sl, tp, productType = _validate_order_params(symbol, qty, sl, tp, productType)
+    qty, sl, tp, productType = _validate_order_params(symbol, qty, sl, tp,
+                                                      productType)
     order_data = {
         "symbol": symbol,
         "qty": qty,
@@ -207,8 +222,11 @@ def place_order(symbol, qty, action, sl, tp, productType, fyersModelInstance):
     try:
         logger.debug(f"Placing order with data: {order_data}")
         response = fyersModelInstance.place_order(order_data)
+        if inspect.iscoroutine(response):
+            response = await response
         logger.debug(f"Response from Fyers order API: {response}")
         return response
     except Exception as e:
-        logger.exception(f"Exception while placing order for {symbol}: {str(e)}")
+        logger.exception(
+            f"Exception while placing order for {symbol}: {str(e)}")
         return {"code": -1, "message": str(e)}

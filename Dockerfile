@@ -24,5 +24,5 @@ EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl --fail http://localhost:8080/readyz || exit 1
 
-CMD ["gunicorn", "-b", "0.0.0.0:8080", "main:app"]
+CMD ["uvicorn", "main:asgi_app", "--host", "0.0.0.0", "--port", "8080"]
 
