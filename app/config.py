@@ -15,6 +15,8 @@ def load_env_variables():
         "WEBHOOK_SECRET_TOKEN",
         "FYERS_PIN",
         "FYERS_AUTH_CODE",
+        "GCS_BUCKET_NAME",
+        "GCS_TOKENS_FILE",
     ]
 
     missing_vars = []

@@ -19,6 +19,8 @@ class TestConfigModule(unittest.TestCase):
             "WEBHOOK_SECRET_TOKEN": "token",
             "FYERS_PIN": "1234",
             "FYERS_AUTH_CODE": "code",
+            "GCS_BUCKET_NAME": "bucket",
+            "GCS_TOKENS_FILE": "tokens.json",
         }
         with patch.dict(os.environ, env, clear=True):
             # Should not raise when all variables are present
@@ -32,6 +34,8 @@ class TestConfigModule(unittest.TestCase):
             "FYERS_REDIRECT_URI": "http://localhost",
             "WEBHOOK_SECRET_TOKEN": "token",
             "FYERS_PIN": "1234",
+            "GCS_BUCKET_NAME": "bucket",
+            "GCS_TOKENS_FILE": "tokens.json",
             # FYERS_AUTH_CODE intentionally omitted
         }
         with patch.dict(os.environ, env, clear=True):
