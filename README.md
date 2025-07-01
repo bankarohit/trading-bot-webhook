@@ -109,6 +109,8 @@ gunicorn -b 0.0.0.0:8080 main:app
 ## Sample Webhook Payload
 
 The `expiry` field should be either `"WEEKLY"` or `"MONTHLY"`.
+Stop loss (`sl`) and take profit (`tp`) are optional—the service
+calculates them from the current LTP when they are omitted or invalid.
 
 ```json
 {
@@ -119,8 +121,6 @@ The `expiry` field should be either `"WEEKLY"` or `"MONTHLY"`.
   "expiry": "WEEKLY",
   "action": "SELL",
   "qty": 25,
-  "sl": 50,
-  "tp": 100,
   "productType": "BO"
 }
 ```
