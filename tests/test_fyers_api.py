@@ -18,7 +18,8 @@ from app.fyers_api import (
     _validate_order_params,
     _get_default_qty,
     get_ltp,
-    place_order
+    place_order,
+    has_short_position
 )
 
 class TestFyersAPI(unittest.TestCase):
@@ -328,6 +329,30 @@ class TestFyersAPI(unittest.TestCase):
         # Verify function handles exception correctly
         self.assertEqual(result, {"code": -1, "message": "Order API Error"})
         mock_logger.exception.assert_called_once()
+
+    def test_has_short_position_true(self):
+        """has_short_position returns True when netQty is negative."""
+        self.mock_fyers.positions.return_value = {
+            "s": "ok",
+            "netPositions": [
+                {"symbol": "NSE:SBIN-EQ", "netQty": -10, "side": -1}
+            ]
+        }
+
+        result = has_short_position("NSE:SBIN-EQ", self.mock_fyers)
+        self.assertTrue(result)
+
+    def test_has_short_position_false(self):
+        """has_short_position returns False when no short position present."""
+        self.mock_fyers.positions.return_value = {
+            "s": "ok",
+            "netPositions": [
+                {"symbol": "NSE:SBIN-EQ", "netQty": 10, "side": 1}
+            ]
+        }
+
+        result = has_short_position("NSE:SBIN-EQ", self.mock_fyers)
+        self.assertFalse(result)
 
 
 if __name__ == '__main__':

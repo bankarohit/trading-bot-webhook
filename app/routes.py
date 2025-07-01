@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from app.logging_config import get_request_id
-from app.fyers_api import get_ltp, place_order, _validate_order_params
+from app.fyers_api import get_ltp, place_order, _validate_order_params, has_short_position
 from app.utils import log_trade_to_sheet, get_symbol_from_csv
 from app.auth import (
     get_fyers,
@@ -222,6 +222,12 @@ def webhook():
             )
             if not fyers:
                 return jsonify({"success": False, "error": "Failed to initialize Fyers client"}), 500
+
+            if action.upper() == "BUY" and not has_short_position(fyers_symbol, fyers):
+                logger.error(
+                    "No short position open for %s", fyers_symbol, extra={"request_id": get_request_id()}
+                )
+                return jsonify({"success": False, "error": "No short position to cover"}), 400
 
             start = time.time()
             logger.info(

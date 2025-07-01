@@ -26,7 +26,7 @@ TradingView Strategy --(alert JSON)--> Flask Webhook
 1. A Pine Script strategy sends an alert to `/webhook` with a secret token.
 2. The service validates the payload and looks up the correct Fyers symbol from the NSE_FO master CSV.
 3. The current LTP is fetched from Fyers to set stop loss and target if not provided.
-4. The order is placed using the Fyers REST API and the details are logged to Google Sheets.
+4. Before placing a ``BUY`` order the service checks your Fyers positions to ensure a short position already exists. If none is found the alert is rejected. Otherwise the order is executed via the Fyers REST API and the details are logged to Google Sheets.
 5. Utility endpoints allow generating the auth URL, refreshing tokens and health checks.
 6. A monitoring service via WebSocket can be added later to track open positions.
 
