@@ -1,7 +1,7 @@
 import os
 import sys
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from flask import Flask
 
 # Provide environment variables and import the blueprint
@@ -15,7 +15,9 @@ os.environ.setdefault("FYERS_AUTH_CODE", "dummy")
 
 from app.routes import webhook_bp
 
+
 class TestRoutes(unittest.TestCase):
+
     def setUp(self):
         self.app = Flask(__name__)
         self.app.register_blueprint(webhook_bp)
@@ -26,7 +28,10 @@ class TestRoutes(unittest.TestCase):
     def test_health_check_success(self, mock_get_token, mock_get_fyers):
         mock_get_token.return_value = "valid_token"
         mock_fyers = MagicMock()
-        mock_fyers.get_profile.return_value = {"s": "ok", "data": {}}
+        mock_fyers.get_profile = AsyncMock(return_value={
+            "s": "ok",
+            "data": {}
+        })
         mock_get_fyers.return_value = mock_fyers
 
         response = self.client.get("/readyz")
@@ -61,14 +66,21 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["auth_url"], "https://auth.test")
 
-    @patch("app.routes.place_order")
-    @patch("app.routes.get_ltp", return_value=200)
+    @patch("app.routes.place_order", new_callable=AsyncMock)
+    @patch("app.routes.get_ltp", new_callable=AsyncMock, return_value=200)
     @patch("app.routes.get_fyers")
-    @patch("app.routes.has_short_position", return_value=True)
+    @patch("app.routes.has_short_position",
+           new_callable=AsyncMock,
+           return_value=True)
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret")
-    def test_webhook_success(self, mock_env, mock_resolve, mock_short, mock_fyers, mock_ltp, mock_order):
-        mock_order.return_value = {"s": "ok", "message": "Order placed", "id": "order123"}
+    def test_webhook_success(self, mock_env, mock_resolve, mock_short,
+                             mock_fyers, mock_ltp, mock_order):
+        mock_order.return_value = {
+            "s": "ok",
+            "message": "Order placed",
+            "id": "order123"
+        }
         mock_fyers.return_value = MagicMock()
 
         payload = {
@@ -121,13 +133,17 @@ class TestRoutes(unittest.TestCase):
         response = self.client.post("/webhook", json=payload)
         self.assertEqual(response.status_code, 403)
 
-    @patch("app.routes.place_order")
-    @patch("app.routes.get_ltp")
+    @patch("app.routes.place_order", new_callable=AsyncMock)
+    @patch("app.routes.get_ltp", new_callable=AsyncMock)
     @patch("app.routes.get_fyers")
-    @patch("app.routes.has_short_position", return_value=False)
+    @patch("app.routes.has_short_position",
+           new_callable=AsyncMock,
+           return_value=False)
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret")
-    def test_webhook_buy_without_short(self, mock_env, mock_resolve, mock_short, mock_fyers, mock_ltp, mock_order):
+    def test_webhook_buy_without_short(self, mock_env, mock_resolve,
+                                       mock_short, mock_fyers, mock_ltp,
+                                       mock_order):
         mock_fyers.return_value = MagicMock()
         payload = {
             "token": "secret",
@@ -145,12 +161,17 @@ class TestRoutes(unittest.TestCase):
         mock_order.assert_not_called()
 
     @patch("app.routes.get_fyers")
-    @patch("app.routes.get_ltp", return_value=None)
-    @patch("app.routes.place_order")
+    @patch("app.routes.get_ltp", new_callable=AsyncMock, return_value=None)
+    @patch("app.routes.place_order", new_callable=AsyncMock)
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret")
-    def test_webhook_ltp_none_uses_defaults(self, mock_env, mock_resolve, mock_order, mock_ltp, mock_fyers):
-        mock_order.return_value = {"s": "ok", "message": "Order placed", "id": "fallback-order"}
+    def test_webhook_ltp_none_uses_defaults(self, mock_env, mock_resolve,
+                                            mock_order, mock_ltp, mock_fyers):
+        mock_order.return_value = {
+            "s": "ok",
+            "message": "Order placed",
+            "id": "fallback-order"
+        }
         mock_fyers.return_value = MagicMock()
 
         payload = {
@@ -171,12 +192,12 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(data["order_response"]["id"], "fallback-order")
         self.assertNotIn("logged_to_sheet", data)
 
-    @patch("app.routes.place_order")
-    @patch("app.routes.get_ltp", return_value=200)
+    @patch("app.routes.place_order", new_callable=AsyncMock)
+    @patch("app.routes.get_ltp", new_callable=AsyncMock, return_value=200)
     @patch("app.routes.get_fyers")
-
     @patch("app.routes.generate_access_token", return_value="tok")
-    def test_generate_token_success(self, mock_gen):
+    def test_generate_token_success(self, mock_gen, mock_get_fyers,
+                                    mock_get_ltp, mock_place):
         response = self.client.post("/generate-token")
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.get_json()["success"])
@@ -192,13 +213,17 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
 
     @patch("app.routes._validate_order_params", side_effect=Exception("bad"))
-    @patch("app.routes.place_order")
-    @patch("app.routes.get_ltp", return_value=200)
+    @patch("app.routes.place_order", new_callable=AsyncMock)
+    @patch("app.routes.get_ltp", new_callable=AsyncMock, return_value=200)
     @patch("app.routes.get_fyers")
-    @patch("app.routes.has_short_position", return_value=True)
+    @patch("app.routes.has_short_position",
+           new_callable=AsyncMock,
+           return_value=True)
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret")
-    def test_webhook_unhandled_exception(self, mock_env, mock_resolve, mock_short, mock_fyers, mock_ltp, mock_order, mock_validate):
+    def test_webhook_unhandled_exception(self, mock_env, mock_resolve,
+                                         mock_short, mock_fyers, mock_ltp,
+                                         mock_order, mock_validate):
         mock_fyers.return_value = MagicMock()
         payload = {
             "token": "secret",
@@ -217,7 +242,7 @@ class TestRoutes(unittest.TestCase):
     def test_health_check_profile_error(self, mock_get_token, mock_get_fyers):
         mock_get_token.return_value = "valid"
         mock_fyers = MagicMock()
-        mock_fyers.get_profile.return_value = {"s": "error"}
+        mock_fyers.get_profile = AsyncMock(return_value={"s": "error"})
         mock_get_fyers.return_value = mock_fyers
 
         response = self.client.get("/readyz")
@@ -257,11 +282,12 @@ class TestRoutes(unittest.TestCase):
         self.assertFalse(response.get_json()["success"])
 
     @patch("app.routes.get_fyers", return_value=None)
-    @patch("app.routes.get_ltp", return_value=200)
-    @patch("app.routes.place_order")
+    @patch("app.routes.get_ltp", new_callable=AsyncMock, return_value=200)
+    @patch("app.routes.place_order", new_callable=AsyncMock)
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret")
-    def test_webhook_fyers_init_fail(self, mock_env, mock_resolve, mock_order, mock_ltp, mock_fyers):
+    def test_webhook_fyers_init_fail(self, mock_env, mock_resolve, mock_order,
+                                     mock_ltp, mock_fyers):
         payload = {
             "token": "secret",
             "symbol": "NIFTY",
@@ -274,13 +300,21 @@ class TestRoutes(unittest.TestCase):
         response = self.client.post("/webhook", json=payload)
         self.assertEqual(response.status_code, 500)
 
-    @patch("app.routes.place_order", return_value={"s": "error", "message": "bad"})
-    @patch("app.routes.get_ltp", return_value=200)
+    @patch("app.routes.place_order",
+           new_callable=AsyncMock,
+           return_value={
+               "s": "error",
+               "message": "bad"
+           })
+    @patch("app.routes.get_ltp", new_callable=AsyncMock, return_value=200)
     @patch("app.routes.get_fyers")
-    @patch("app.routes.has_short_position", return_value=True)
+    @patch("app.routes.has_short_position",
+           new_callable=AsyncMock,
+           return_value=True)
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret")
-    def test_webhook_order_api_error(self, mock_env, mock_resolve, mock_short, mock_fyers, mock_ltp, mock_order):
+    def test_webhook_order_api_error(self, mock_env, mock_resolve, mock_short,
+                                     mock_fyers, mock_ltp, mock_order):
         mock_fyers.return_value = MagicMock()
         payload = {
             "token": "secret",
@@ -294,13 +328,18 @@ class TestRoutes(unittest.TestCase):
         response = self.client.post("/webhook", json=payload)
         self.assertEqual(response.status_code, 500)
 
-    @patch("app.routes.place_order", side_effect=Exception("fail"))
-    @patch("app.routes.get_ltp", return_value=200)
+    @patch("app.routes.place_order",
+           new_callable=AsyncMock,
+           side_effect=Exception("fail"))
+    @patch("app.routes.get_ltp", new_callable=AsyncMock, return_value=200)
     @patch("app.routes.get_fyers")
-    @patch("app.routes.has_short_position", return_value=True)
+    @patch("app.routes.has_short_position",
+           new_callable=AsyncMock,
+           return_value=True)
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret")
-    def test_webhook_order_exception(self, mock_env, mock_resolve, mock_short, mock_fyers, mock_ltp, mock_order):
+    def test_webhook_order_exception(self, mock_env, mock_resolve, mock_short,
+                                     mock_fyers, mock_ltp, mock_order):
         mock_fyers.return_value = MagicMock()
         payload = {
             "token": "secret",
@@ -314,13 +353,21 @@ class TestRoutes(unittest.TestCase):
         response = self.client.post("/webhook", json=payload)
         self.assertEqual(response.status_code, 500)
 
-    @patch("app.routes.place_order", return_value={"s": "ok"})
-    @patch("app.routes.get_ltp", side_effect=Exception("ltp"))
+    @patch("app.routes.place_order",
+           new_callable=AsyncMock,
+           return_value={"s": "ok"})
+    @patch("app.routes.get_ltp",
+           new_callable=AsyncMock,
+           side_effect=Exception("ltp"))
     @patch("app.routes.get_fyers")
-    @patch("app.routes.has_short_position", return_value=True)
+    @patch("app.routes.has_short_position",
+           new_callable=AsyncMock,
+           return_value=True)
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret")
-    def test_webhook_get_ltp_exception(self, mock_env, mock_resolve, mock_short, mock_fyers, mock_ltp, mock_order):
+    def test_webhook_get_ltp_exception(self, mock_env, mock_resolve,
+                                       mock_short, mock_fyers, mock_ltp,
+                                       mock_order):
         mock_fyers.return_value = MagicMock()
         payload = {
             "token": "secret",
@@ -333,6 +380,7 @@ class TestRoutes(unittest.TestCase):
         }
         response = self.client.post("/webhook", json=payload)
         self.assertEqual(response.status_code, 200)
+
 
 if __name__ == '__main__':
     unittest.main()
