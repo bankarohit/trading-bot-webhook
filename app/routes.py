@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from app.logging_config import get_request_id
 from app.fyers_api import get_ltp, place_order, _validate_order_params, has_short_position
-from app.utils import log_trade_to_sheet, get_symbol_from_csv
+from app.utils import get_symbol_from_csv
 from app.auth import (
     get_fyers,
     get_auth_code_url,
@@ -261,18 +261,6 @@ def webhook():
 
         qty, sl, tp, productType = _validate_order_params(fyers_symbol, qty, sl, tp, productType)
         try:
-            start = time.time()
-            logger.info("Logging trade to sheet", extra={"request_id": get_request_id()})
-            _trade_logged = log_trade_to_sheet(fyers_symbol, action, qty, ltp, sl, tp, sheet_name="Trades")
-            logger.info(
-                "logTrade took %.2fs", time.time() - start, extra={"request_id": get_request_id()}
-            )
-        except Exception as e:
-            logger.exception(
-                "Failed to log trade to sheet: %s", e, extra={"request_id": get_request_id()}
-            )
-            _trade_logged = False
-        try:
             fyers = get_fyers()
             logger.info(
                 "Placing order for %s qty=%s action=%s sl=%s tp=%s productType=%s",
@@ -312,7 +300,6 @@ def webhook():
                     "success": True,
                     "message": "order placed",
                     "order_response": order_response,
-                    "logged_to_sheet": _trade_logged,
                 }
             ),
             200,

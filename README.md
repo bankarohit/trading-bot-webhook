@@ -1,12 +1,11 @@
 # Trading Bot Webhook
 
-This project provides a Flask based webhook service that connects TradingView alerts to the Fyers trading API.  Alerts from your TradingView strategy are validated, translated to Fyers option symbols and executed automatically.  All trades are recorded in Google Sheets and the application can be deployed on Google Cloud Run.
+This project provides a Flask based webhook service that connects TradingView alerts to the Fyers trading API.  Alerts from your TradingView strategy are validated, translated to Fyers option symbols and executed automatically.  The application can be deployed on Google Cloud Run.
 
 ## Features
 
 - **Webhook receiver** that processes TradingView JSON payloads.
 - **Fyers API integration** for option order placement.
-- **Google Sheets logging** of every executed trade.
 - **Token management utilities** to generate and refresh access tokens.
 - **Health check endpoint** for readiness probes.
 - Unit tests covering the core modules.
@@ -18,7 +17,6 @@ TradingView Strategy --(alert JSON)--> Flask Webhook
         |                              |
         |  Resolve symbol +             +--> Fyers API (order placement)
         |  calculate SL/TP              |
-        |                              +--> Google Sheets (trade log)
         v
     (future) WebSocket monitor
 ```
@@ -26,7 +24,7 @@ TradingView Strategy --(alert JSON)--> Flask Webhook
 1. A Pine Script strategy sends an alert to `/webhook` with a secret token.
 2. The service validates the payload and looks up the correct Fyers symbol from the NSE_FO master CSV.
 3. The current LTP is fetched from Fyers to set stop loss and target if not provided.
-4. Before placing a ``BUY`` order the service checks your Fyers positions to ensure a short position already exists. If none is found the alert is rejected. Otherwise the order is executed via the Fyers REST API and the details are logged to Google Sheets.
+4. Before placing a ``BUY`` order the service checks your Fyers positions to ensure a short position already exists. If none is found the alert is rejected. Otherwise the order is executed via the Fyers REST API.
 5. Utility endpoints allow generating the auth URL, refreshing tokens and health checks.
 6. A monitoring service via WebSocket can be added later to track open positions.
 
@@ -36,7 +34,7 @@ TradingView Strategy --(alert JSON)--> Flask Webhook
   - `auth.py` – wrappers around the token manager.
   - `routes.py` – Flask blueprint with webhook and utility endpoints.
   - `token_manager.py` – handles token storage and refresh using Google Cloud Storage.
-  - `utils.py` – symbol master loader and Google Sheets helpers.
+  - `utils.py` – symbol master loader utilities.
 - `main.py` – entry point that starts the Flask app.
 - `tests/` – unit tests for all modules.
 
@@ -52,7 +50,6 @@ FYERS_REDIRECT_URI=https://your-redirect
 FYERS_AUTH_CODE=obtained_from_login
 FYERS_PIN=1234
 WEBHOOK_SECRET_TOKEN=choose_a_secret
-GOOGLE_SHEET_ID=your_google_sheet_id
 GCS_BUCKET_NAME=your_bucket
 GCS_TOKENS_FILE=tokens/tokens.json
 ```
@@ -68,11 +65,11 @@ LOG_FILE=/var/log/webhook.log
 
 ### Google Service Account
 
-1. Create a service account in Google Cloud and enable the **Sheets API** and **Cloud Storage**.
+1. Create a service account in Google Cloud and enable the **Cloud Storage** API.
 2. Download the JSON key file for this account.
 3. Either set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the key path or mount the key at `/secrets/service_account.json`.
 
-These credentials are required for storing tokens in Google Cloud Storage and for accessing Google Sheets.
+These credentials are required for storing tokens in Google Cloud Storage.
 
 3. **Install dependencies**
 
@@ -147,5 +144,5 @@ The suite covers token handling, route logic, Fyers integration and utility help
 
 ## Future Enhancements
 
-The design document outlines additional components such as a WebSocket listener to update trade status in Google Sheets, plus optional deployment on GKE or extended alerting (e.g. Telegram).  These can be built on top of the core webhook service contained here.
+The design document outlines additional components such as a WebSocket listener for monitoring trades, plus optional deployment on GKE or extended alerting (e.g. Telegram). These can be built on top of the core webhook service contained here.
 

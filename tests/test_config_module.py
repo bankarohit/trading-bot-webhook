@@ -17,7 +17,6 @@ class TestConfigModule(unittest.TestCase):
             "FYERS_SECRET_ID": "secret",
             "FYERS_REDIRECT_URI": "http://localhost",
             "WEBHOOK_SECRET_TOKEN": "token",
-            "GOOGLE_SHEET_ID": "sheet",
             "FYERS_PIN": "1234",
             "FYERS_AUTH_CODE": "code",
         }
@@ -32,7 +31,6 @@ class TestConfigModule(unittest.TestCase):
             "FYERS_SECRET_ID": "secret",
             "FYERS_REDIRECT_URI": "http://localhost",
             "WEBHOOK_SECRET_TOKEN": "token",
-            "GOOGLE_SHEET_ID": "sheet",
             "FYERS_PIN": "1234",
             # FYERS_AUTH_CODE intentionally omitted
         }
