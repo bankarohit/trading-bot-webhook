@@ -115,8 +115,8 @@ class TestAuth(unittest.TestCase):
         manager.generate_token.side_effect = Exception("err")
         mock_get_mgr.return_value = manager
 
-        token = auth.generate_access_token()
-        self.assertIsNone(token)
+        with self.assertRaises(Exception):
+            auth.generate_access_token()
         manager.generate_token.assert_called_once()
 
 if __name__ == '__main__':
