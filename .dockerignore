@@ -1,0 +1,17 @@
+# Exclude development and test files
+.git
+.gitignore
+*.md
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.swp
+.DS_Store
+.vscode/
+.idea/
+.pytest_cache/
+.coverage
+.coveragerc
+tests/
+docker-compose.yml
+cloudbuild.yaml
