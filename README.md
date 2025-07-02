@@ -135,6 +135,8 @@ calculates them from the current LTP when they are omitted or invalid.
 
 ## Testing
 
+Install dependencies with `pip install -r requirements.txt` before running the tests. Using a virtual environment is recommended.
+
 Run the unit tests with:
 
 ```bash
