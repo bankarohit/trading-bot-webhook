@@ -116,4 +116,5 @@ def generate_access_token():
             logger.error("[AUTH] Token generation returned None")
     except Exception as e:
         logger.exception("[AUTH] Error generating token: %s", e)
+        raise
 
