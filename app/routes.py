@@ -288,13 +288,14 @@ async def webhook():
             logger.info("getLTPs took %.2fs",
                         time.time() - start,
                         extra={"request_id": get_request_id()})
-            if ltp is not None:
+            if isinstance(ltp, (int, float)):
                 sl = round(ltp * 0.05)
                 tp = round(ltp * 0.1)
             else:
                 logger.warning(
-                    "LTP returned None for symbol %s, using default SL/TP from fyers_api",
+                    "LTP invalid for %s: %s",
                     fyers_symbol,
+                    ltp,
                     extra={"request_id": get_request_id()},
                 )
                 sl = None

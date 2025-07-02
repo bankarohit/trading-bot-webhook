@@ -192,6 +192,43 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(data["order_response"]["id"], "fallback-order")
         self.assertNotIn("logged_to_sheet", data)
 
+    @patch("app.routes.get_fyers")
+    @patch(
+        "app.routes.get_ltp",
+        new_callable=AsyncMock,
+        return_value={"code": -1, "message": "bad"},
+    )
+    @patch("app.routes.place_order", new_callable=AsyncMock)
+    @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
+    @patch("app.routes.os.getenv", return_value="secret")
+    def test_webhook_ltp_error_dict_defaults(self, mock_env, mock_resolve,
+                                             mock_order, mock_ltp, mock_fyers):
+        mock_order.return_value = {
+            "s": "ok",
+            "message": "Order placed",
+            "id": "dict-order",
+        }
+        mock_fyers.return_value = MagicMock()
+
+        payload = {
+            "token": "secret",
+            "symbol": "NIFTY",
+            "strikeprice": 24500,
+            "optionType": "CE",
+            "expiry": "WEEKLY",
+            "action": "SELL",
+            "qty": 75,
+        }
+        response = self.client.post("/webhook", json=payload)
+        data = response.get_json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(data["success"])
+        self.assertEqual(data["order_response"]["id"], "dict-order")
+        args = mock_order.call_args[0]
+        self.assertEqual(args[3], 10.0)
+        self.assertEqual(args[4], 20.0)
+
     @patch("app.routes.place_order", new_callable=AsyncMock)
     @patch("app.routes.get_ltp", new_callable=AsyncMock, return_value=200)
     @patch("app.routes.get_fyers")
