@@ -289,8 +289,8 @@ async def webhook():
                         time.time() - start,
                         extra={"request_id": get_request_id()})
             if isinstance(ltp, (int, float)):
-                sl = round(ltp * 0.05)
-                tp = round(ltp * 0.1)
+                sl = round(ltp * 0.15)
+                tp = round(ltp * 0.25)
             else:
                 logger.warning(
                     "LTP invalid for %s: %s",
