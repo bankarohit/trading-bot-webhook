@@ -14,6 +14,7 @@ os.environ.setdefault("WEBHOOK_SECRET_TOKEN", "dummy")
 os.environ.setdefault("FYERS_PIN", "0000")
 os.environ.setdefault("FYERS_AUTH_CODE", "dummy")
 
+import app.fyers_api
 from app.fyers_api import (_validate_order_params, _get_default_qty, get_ltp,
                            place_order, has_short_position)
 
@@ -231,7 +232,8 @@ class TestFyersAPI(unittest.TestCase):
 
         # Verify function handles exception correctly
         self.assertEqual(result, {"code": -1, "message": "API Error"})
-        mock_logger.exception.assert_called_once()
+        self.assertEqual(mock_logger.exception.call_count, 2)
+        self.assertEqual(self.mock_fyers.quotes.call_count, app.fyers_api.DEFAULT_RETRIES)
 
     # Tests for place_order
     @patch('app.fyers_api._validate_order_params',
@@ -326,7 +328,9 @@ class TestFyersAPI(unittest.TestCase):
 
         # Verify function handles exception correctly
         self.assertEqual(result, {"code": -1, "message": "Order API Error"})
-        mock_logger.exception.assert_called_once()
+        self.assertEqual(mock_logger.exception.call_count, 2)
+        self.assertEqual(self.mock_fyers.place_order.call_count,
+                         app.fyers_api.DEFAULT_RETRIES)
 
     def test_has_short_position_true(self):
         """has_short_position returns True when netQty is negative."""
