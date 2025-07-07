@@ -37,6 +37,19 @@ class TestFyersAPI(unittest.TestCase):
         """Clean up after each test."""
         pass
 
+    def test_retry_api_call_timeout_parameter(self):
+        """_retry_api_call passes timeout to the wrapped function."""
+        calls = []
+
+        async def dummy_func(timeout=None):
+            calls.append(timeout)
+            return "ok"
+
+        result = asyncio.run(app.fyers_api._retry_api_call(dummy_func, timeout=5, retries=1))
+
+        self.assertEqual(result, "ok")
+        self.assertEqual(calls, [5])
+
     # Tests for _validate_order_params
     def test_validate_order_params_with_valid_inputs(self):
         """Test _validate_order_params with all valid parameters."""
@@ -210,7 +223,7 @@ class TestFyersAPI(unittest.TestCase):
         self.assertEqual(result, 500.25)
         # Verify the quotes method was called with correct parameters
         self.mock_fyers.quotes.assert_called_once_with(
-            {"symbols": "NSE:SBIN-EQ"})
+            {"symbols": "NSE:SBIN-EQ"}, timeout=None)
 
     def test_get_ltp_empty_response(self):
         """Test get_ltp with empty API response."""
@@ -234,6 +247,15 @@ class TestFyersAPI(unittest.TestCase):
         self.assertEqual(result, {"code": -1, "message": "API Error"})
         self.assertEqual(mock_logger.exception.call_count, 2)
         self.assertEqual(self.mock_fyers.quotes.call_count, app.fyers_api.DEFAULT_RETRIES)
+
+    def test_get_ltp_with_timeout(self):
+        """Ensure timeout is forwarded to the quotes API call."""
+        self.mock_fyers.quotes.return_value = {"s": "ok", "d": [{"v": {"lp": 1}}]}
+
+        result = asyncio.run(get_ltp("NSE:SBIN-EQ", self.mock_fyers, timeout=3))
+
+        self.assertEqual(result, 1)
+        self.mock_fyers.quotes.assert_called_once_with({"symbols": "NSE:SBIN-EQ"}, timeout=3)
 
     # Tests for place_order
     @patch('app.fyers_api._validate_order_params',
@@ -283,7 +305,7 @@ class TestFyersAPI(unittest.TestCase):
             "takeProfit": 15.0
         }
         self.mock_fyers.place_order.assert_called_once_with(
-            expected_order_data)
+            expected_order_data, timeout=None)
 
     @patch('app.fyers_api._validate_order_params',
            return_value=(10, 5.0, 15.0, "CNC"))
@@ -332,6 +354,41 @@ class TestFyersAPI(unittest.TestCase):
         self.assertEqual(self.mock_fyers.place_order.call_count,
                          app.fyers_api.DEFAULT_RETRIES)
 
+    @patch('app.fyers_api._validate_order_params', return_value=(10,5.0,15.0,"CNC"))
+    def test_place_order_with_timeout(self, mock_validate_params):
+        """Ensure timeout is forwarded to place_order API call."""
+        self.mock_fyers.place_order.return_value = {"code": 0}
+
+        result = asyncio.run(
+            place_order(
+                symbol="NSE:SBIN-EQ",
+                qty=10,
+                action="BUY",
+                sl=5.0,
+                tp=15.0,
+                productType="CNC",
+                fyersModelInstance=self.mock_fyers,
+                timeout=4,
+            )
+        )
+
+        self.assertEqual(result, {"code": 0})
+        expected_order_data = {
+            "symbol": "NSE:SBIN-EQ",
+            "qty": 10,
+            "type": 2,
+            "side": 1,
+            "productType": "CNC",
+            "limitPrice": 0,
+            "stopPrice": 0,
+            "validity": "DAY",
+            "disclosedQty": 0,
+            "offlineOrder": False,
+            "stopLoss": 5.0,
+            "takeProfit": 15.0,
+        }
+        self.mock_fyers.place_order.assert_called_once_with(expected_order_data, timeout=4)
+
     def test_has_short_position_true(self):
         """has_short_position returns True when netQty is negative."""
         self.mock_fyers.positions.return_value = {
@@ -361,6 +418,15 @@ class TestFyersAPI(unittest.TestCase):
         result = asyncio.run(has_short_position("NSE:SBIN-EQ",
                                                 self.mock_fyers))
         self.assertFalse(result)
+
+    def test_has_short_position_with_timeout(self):
+        """Ensure timeout passes to positions API call."""
+        self.mock_fyers.positions.return_value = {"s": "ok", "netPositions": []}
+
+        result = asyncio.run(has_short_position("NSE:SBIN-EQ", self.mock_fyers, timeout=2))
+
+        self.assertFalse(result)
+        self.mock_fyers.positions.assert_called_once_with(timeout=2)
 
     @patch('app.fyers_api.get_token_manager')
     def test_get_ltp_auto_refresh(self, mock_mgr):
