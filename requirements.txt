@@ -12,5 +12,7 @@ yapf
 pytz
 google-cloud-storage
 google-cloud-kms
+google-cloud-logging
+google-cloud-pubsub
 gunicorn
 uvicorn

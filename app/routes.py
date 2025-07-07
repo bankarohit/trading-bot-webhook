@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from app.logging_config import get_request_id
 from app.fyers_api import get_ltp, place_order, _validate_order_params, has_short_position
 from app.utils import get_symbol_from_csv
+from app.notifications import send_notification
 from app.auth import (
     get_fyers,
     get_auth_code_url,
@@ -325,30 +326,46 @@ async def webhook():
                 productType,
                 extra={"request_id": get_request_id()},
             )
-            order_response = await place_order(fyers_symbol, qty, action, sl,
-                                               tp, productType, fyers)
+            order_response = await place_order(
+                fyers_symbol, qty, action, sl, tp, productType, fyers)
             if order_response.get("s") != "ok":
-                logger.error("Fyers order failed: %s",
-                             order_response,
-                             extra={"request_id": get_request_id()})
-                return jsonify({
-                    "code": -1,
-                    "message":
-                    f"Fyers order failed: {order_response.get('message', 'Unknown error')}",
-                    "details": order_response
-                }), 500
+                logger.error(
+                    "Fyers order failed: %s",
+                    order_response,
+                    extra={"request_id": get_request_id(), "event": "order_failed"},
+                )
+                send_notification(
+                    f"Order failed for {fyers_symbol}",
+                    event="order_failed",
+                    response=order_response,
+                )
+                return (
+                    jsonify({
+                        "code": -1,
+                        "message":
+                        f"Fyers order failed: {order_response.get('message', 'Unknown error')}",
+                        "details": order_response,
+                    }),
+                    500,
+                )
         except Exception as e:
             logger.exception(
                 "Exception occured while placing order: %s",
                 e,
-                extra={"request_id": get_request_id()},
+                extra={"request_id": get_request_id(), "event": "order_failed"},
             )
-            return jsonify({
-                "code":
-                -1,
-                "message":
-                f"Exception while placing order: {str(e)}"
-            }), 500
+            send_notification(
+                f"Order exception for {fyers_symbol}",
+                event="order_failed",
+                error=str(e),
+            )
+            return (
+                jsonify({
+                    "code": -1,
+                    "message": f"Exception while placing order: {str(e)}",
+                }),
+                500,
+            )
 
         logger.info("Order placement complete",
                     extra={"request_id": get_request_id()})
@@ -364,5 +381,10 @@ async def webhook():
     except Exception as e:
         logger.exception("Unhandled error in webhook: %s",
                          e,
-                         extra={"request_id": get_request_id()})
+                         extra={"request_id": get_request_id(), "event": "order_failed"})
+        send_notification(
+            "Unhandled webhook error",
+            event="order_failed",
+            error=str(e),
+        )
         return jsonify({"success": False, "error": str(e)}), 500

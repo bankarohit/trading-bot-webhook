@@ -1,6 +1,8 @@
 import os
 import logging
 from logging.handlers import RotatingFileHandler
+from google.cloud.logging_v2.handlers import StructuredLogHandler
+import google.cloud.logging_v2 as cloud_logging
 from flask import g, has_request_context
 
 def get_request_id() -> str:
@@ -36,6 +38,13 @@ def configure_logging() -> None:
 
     request_filter = RequestIdFilter()
     root_logger.addFilter(request_filter)
+
+    if os.getenv("USE_CLOUD_LOGGING"):
+        client = cloud_logging.Client()
+        cloud_handler = StructuredLogHandler()
+        cloud_handler.setLevel(level)
+        cloud_handler.addFilter(request_filter)
+        root_logger.addHandler(cloud_handler)
 
     if log_file:
         file_handler = RotatingFileHandler(

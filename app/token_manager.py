@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 from fyers_apiv3 import fyersModel
 from app.config import load_env_variables
 from google.cloud import storage, kms
+from app.notifications import send_notification
 
 logger = logging.getLogger(__name__)
 
@@ -287,8 +288,10 @@ class TokenManager:
             secret_id = os.getenv("FYERS_SECRET_ID")
 
             if not (refresh_token and fyers_pin):
-                logger.error("Missing refresh_token or FYERS_PIN")
-                raise RefreshTokenError("Missing refresh_token or FYERS_PIN")
+                message = "Missing refresh_token or FYERS_PIN"
+                logger.error(message)
+                send_notification(message, event="token_refresh_error")
+                raise RefreshTokenError(message)
 
             logger.info("Refreshing access token...")
             try:
@@ -336,10 +339,12 @@ class TokenManager:
                     return response["access_token"]
 
                 error_message = f"Token refresh failed: {response}"
-                logger.error(error_message)
+                logger.error(error_message, extra={"event": "token_refresh_error"})
+                send_notification(error_message, event="token_refresh_error")
                 raise RefreshTokenError(error_message)
             except Exception as e:
                 logger.exception("Refresh token error: %s", e)
+                send_notification(str(e), event="token_refresh_error")
                 raise RefreshTokenError(f"Refresh token error: {e}")
 
     def _initialize_fyers_client(self):
