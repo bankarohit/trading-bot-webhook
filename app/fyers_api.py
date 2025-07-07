@@ -8,6 +8,7 @@ tests.
 
 import logging
 import inspect
+import asyncio
 import app.utils as utils
 
 if utils._symbol_cache is None:
@@ -16,6 +17,59 @@ if utils._symbol_cache is None:
 logger = logging.getLogger(__name__)
 
 valid_product_types = {"INTRADAY", "CNC", "DELIVERY", "BO", "CO"}
+
+# Default retry configuration for Fyers API calls
+DEFAULT_RETRIES = 3
+INITIAL_DELAY = 1  # seconds
+BACKOFF_FACTOR = 2
+
+
+async def _retry_api_call(func, *, call_desc="API call", retries=DEFAULT_RETRIES,
+                          delay=INITIAL_DELAY,
+                          backoff=BACKOFF_FACTOR):
+    """Execute ``func`` with retries and exponential backoff.
+
+    Parameters
+    ----------
+    func : callable
+        Function or coroutine to execute.
+    call_desc : str, optional
+        Description used in log messages.
+    retries : int, optional
+        Number of attempts before the error is raised.
+    delay : int or float, optional
+        Initial delay between retries in seconds.
+    backoff : int or float, optional
+        Factor by which the delay increases each retry.
+
+    Returns
+    -------
+    Any
+        Result of ``func`` if it succeeds.
+
+    Raises
+    ------
+    Exception
+        Propagates the last encountered exception after exhausting retries.
+    """
+    for attempt in range(1, retries + 1):
+        try:
+            result = func()
+            if inspect.iscoroutine(result):
+                result = await result
+            return result
+        except Exception as exc:  # pragma: no cover - log and retry
+            if attempt < retries:
+                wait_time = delay * (backoff ** (attempt - 1))
+                logger.warning(
+                    f"%s attempt %s failed: %s. Retrying in %ss", call_desc,
+                    attempt, exc, wait_time)
+                await asyncio.sleep(wait_time)
+            else:
+                logger.exception(
+                    f"%s failed after %s attempts: %s", call_desc, retries,
+                    exc)
+                raise
 
 
 def _validate_order_params(symbol, qty, sl, tp, productType):
@@ -88,7 +142,7 @@ def _get_default_qty(symbol):
         return 1
 
 
-async def get_ltp(symbol, fyersModelInstance):
+async def get_ltp(symbol, fyersModelInstance, retries=DEFAULT_RETRIES):
     """Fetch the latest traded price for a symbol from Fyers.
 
     Parameters
@@ -98,6 +152,8 @@ async def get_ltp(symbol, fyersModelInstance):
     fyersModelInstance : object
         Instance of :class:`fyers_apiv3.fyersModel.FyersModel` or a compatible
         mock with ``quotes`` method.
+    retries : int, optional
+        How many times to retry the API call on failure.
 
     Returns
     -------
@@ -109,9 +165,11 @@ async def get_ltp(symbol, fyersModelInstance):
     """
 
     try:
-        response = fyersModelInstance.quotes({"symbols": symbol})
-        if inspect.iscoroutine(response):
-            response = await response
+        response = await _retry_api_call(
+            lambda: fyersModelInstance.quotes({"symbols": symbol}),
+            call_desc="quotes",
+            retries=retries,
+        )
         if response.get("s") == "ok" and response.get("d") and len(
                 response["d"]) > 0:
             return response.get("d", [{}])[0].get("v", {}).get("lp")
@@ -124,7 +182,7 @@ async def get_ltp(symbol, fyersModelInstance):
         return {"code": -1, "message": str(e)}
 
 
-async def has_short_position(symbol, fyersModelInstance):
+async def has_short_position(symbol, fyersModelInstance, retries=DEFAULT_RETRIES):
     """Return ``True`` if there is an open short position for ``symbol``.
 
     The function calls ``fyersModelInstance.positions()`` and inspects the
@@ -138,6 +196,8 @@ async def has_short_position(symbol, fyersModelInstance):
     fyersModelInstance : object
         Instance of :class:`fyers_apiv3.fyersModel.FyersModel` or a compatible
         mock with ``positions`` method.
+    retries : int, optional
+        How many times to retry the API call on failure.
 
     Returns
     -------
@@ -147,9 +207,11 @@ async def has_short_position(symbol, fyersModelInstance):
     """
 
     try:
-        response = fyersModelInstance.positions()
-        if inspect.iscoroutine(response):
-            response = await response
+        response = await _retry_api_call(
+            fyersModelInstance.positions,
+            call_desc="positions",
+            retries=retries,
+        )
         logger.debug(f"Positions response: {response}")
         if response.get("s") != "ok":
             logger.warning(f"Positions API returned error: {response}")
@@ -172,7 +234,7 @@ async def has_short_position(symbol, fyersModelInstance):
 
 
 async def place_order(symbol, qty, action, sl, tp, productType,
-                      fyersModelInstance):
+                      fyersModelInstance, retries=DEFAULT_RETRIES):
     """Place a market order with Fyers after validating parameters.
 
     Parameters
@@ -194,6 +256,8 @@ async def place_order(symbol, qty, action, sl, tp, productType,
         One of ``valid_product_types``. Invalid values fall back to ``"BO"``.
     fyersModelInstance : object
         Fyers client instance or mock providing ``place_order`` method.
+    retries : int, optional
+        How many times to retry the API call on failure.
 
     Returns
     -------
@@ -221,9 +285,11 @@ async def place_order(symbol, qty, action, sl, tp, productType,
 
     try:
         logger.debug(f"Placing order with data: {order_data}")
-        response = fyersModelInstance.place_order(order_data)
-        if inspect.iscoroutine(response):
-            response = await response
+        response = await _retry_api_call(
+            lambda: fyersModelInstance.place_order(order_data),
+            call_desc="place_order",
+            retries=retries,
+        )
         logger.debug(f"Response from Fyers order API: {response}")
         return response
     except Exception as e:

@@ -9,6 +9,7 @@ This project provides a Flask based webhook service that connects TradingView al
 - **Token management utilities** to generate and refresh access tokens.
 - **Health check endpoint** for readiness probes.
 - Unit tests covering the core modules.
+- **Resilient API calls** with exponential backoff (3 attempts).
 
 ## Architecture
 
