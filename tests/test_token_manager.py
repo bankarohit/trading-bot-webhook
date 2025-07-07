@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import patch, mock_open, MagicMock
 import threading
 import hashlib
+import base64
 
 # Ensure package import and provide env vars for load_env_variables
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -37,7 +38,8 @@ class TestTokenManager(unittest.TestCase):
                 "FYERS_REDIRECT_URI": "test_redirect_uri",
                 "WEBHOOK_SECRET_TOKEN": "test_webhook_token",
                 "FYERS_PIN": "1234",
-                "FYERS_AUTH_CODE": "dummy_auth_code"
+                "FYERS_AUTH_CODE": "dummy_auth_code",
+                "KMS_KEY_NAME": "projects/test/locations/global/keyRings/test/cryptoKeys/test"
             })
         self.env_patcher.start()
 
@@ -75,6 +77,16 @@ class TestTokenManager(unittest.TestCase):
             'app.token_manager.fyersModel.FyersModel')
         self.mock_fyers_model = self.fyers_model_patcher.start()
 
+        # Patch encryption helpers to simple base64 for tests
+        self.encrypt_patcher = patch(
+            'app.token_manager.TokenManager._encrypt',
+            side_effect=lambda b: base64.b64encode(b).decode())
+        self.decrypt_patcher = patch(
+            'app.token_manager.TokenManager._decrypt',
+            side_effect=lambda s: base64.b64decode(s))
+        self.encrypt_patcher.start()
+        self.decrypt_patcher.start()
+
     def tearDown(self):
         """Clean up after each test."""
         self.env_patcher.stop()
@@ -86,6 +98,8 @@ class TestTokenManager(unittest.TestCase):
         self.init_session_patcher.stop()
         self.gcs_client_patcher.stop()
         self.fyers_model_patcher.stop()
+        self.encrypt_patcher.stop()
+        self.decrypt_patcher.stop()
 
     @patch("os.path.exists", return_value=False)
     def test_load_tokens_file_not_exists(self, mock_exists):
@@ -101,7 +115,7 @@ class TestTokenManager(unittest.TestCase):
     @patch("builtins.open",
            new_callable=mock_open,
            read_data=
-           '{"access_token": "test_token", "refresh_token": "test_refresh"}')
+           'eyJhY2Nlc3NfdG9rZW4iOiAidGVzdF90b2tlbiIsICJyZWZyZXNoX3Rva2VuIjogInRlc3RfcmVmcmVzaCJ9')
     def test_load_tokens_success(self, mock_file, mock_gcs_client):
         # Mock the GCS blob to simulate existence and download
         self.load_tokens_patcher.stop()
@@ -143,7 +157,7 @@ class TestTokenManager(unittest.TestCase):
     @patch("builtins.open",
            new_callable=mock_open,
            read_data=
-           '{"access_token": "local_token", "refresh_token": "local_refresh"}')
+           'eyJhY2Nlc3NfdG9rZW4iOiAibG9jYWxfdG9rZW4iLCAicmVmcmVzaF90b2tlbiI6ICJsb2NhbF9yZWZyZXNoIn0=')
     def test_load_tokens_fallback_when_blob_missing(self, mock_file,
                                                     mock_exists):
         """Load tokens from local file if GCS blob is missing."""
@@ -161,7 +175,7 @@ class TestTokenManager(unittest.TestCase):
     @patch("builtins.open",
            new_callable=mock_open,
            read_data=
-           '{"access_token": "local_token", "refresh_token": "local_refresh"}')
+           'eyJhY2Nlc3NfdG9rZW4iOiAibG9jYWxfdG9rZW4iLCAicmVmcmVzaF90b2tlbiI6ICJsb2NhbF9yZWZyZXNoIn0=')
     def test_load_tokens_fallback_on_gcs_error(self, mock_file, mock_exists,
                                                mock_gcs_client):
         """Load tokens from local file when GCS client raises an error."""
@@ -188,8 +202,7 @@ class TestTokenManager(unittest.TestCase):
         mock_file.assert_any_call(TOKENS_FILE, "w")
 
         handle = mock_file()
-        handle.write.assert_any_call('"access_token"')
-        handle.write.assert_any_call('"test_token"')
+        handle.write.assert_called_with('eyJhY2Nlc3NfdG9rZW4iOiAidGVzdF90b2tlbiJ9')
 
     @patch("builtins.open", side_effect=Exception("Write error"))
     def test_save_tokens_exception(self, mock_file):

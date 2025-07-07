@@ -12,10 +12,11 @@ import hashlib
 import requests
 import logging
 import threading
+import base64
 from datetime import datetime
 from fyers_apiv3 import fyersModel
 from app.config import load_env_variables
-from google.cloud import storage
+from google.cloud import storage, kms
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +88,29 @@ class TokenManager:
         self._fyers = None  # Will be lazily initialized when needed
         self._lock = threading.RLock()  # Reentrant lock for thread safety
 
+    def _encrypt(self, data: bytes) -> str:
+        """Encrypt bytes using Cloud KMS and return base64 ciphertext."""
+        try:
+            client = kms.KeyManagementServiceClient()
+            key_name = os.getenv("KMS_KEY_NAME")
+            resp = client.encrypt(request={"name": key_name, "plaintext": data})
+            return base64.b64encode(resp.ciphertext).decode()
+        except Exception as e:
+            logger.exception("Encryption failed: %s", e)
+            raise TokenManagerException(f"Encryption failed: {e}")
+
+    def _decrypt(self, data: str) -> bytes:
+        """Decrypt base64 ciphertext using Cloud KMS and return plaintext."""
+        try:
+            client = kms.KeyManagementServiceClient()
+            key_name = os.getenv("KMS_KEY_NAME")
+            ciphertext = base64.b64decode(data)
+            resp = client.decrypt(request={"name": key_name, "ciphertext": ciphertext})
+            return resp.plaintext
+        except Exception as e:
+            logger.exception("Decryption failed: %s", e)
+            raise TokenManagerException(f"Decryption failed: {e}")
+
     def _load_tokens(self):
         """Retrieve tokens from GCS first, then fall back to the local file."""
         try:
@@ -101,7 +125,9 @@ class TokenManager:
                 logger.info("Loaded tokens from %s into %s", gcs_path,
                             self.tokens_file)
                 with open(self.tokens_file, "r") as f:
-                    return json.load(f)
+                    encrypted = f.read()
+                plaintext = self._decrypt(encrypted)
+                return json.loads(plaintext.decode())
             else:
                 gcs_path = f"gs://{bucket.name}/{blob.name}"
                 logger.warning(
@@ -113,9 +139,11 @@ class TokenManager:
         try:
             if os.path.exists(self.tokens_file):
                 with open(self.tokens_file, "r") as f:
-                    logger.info("Loaded tokens from local file %s",
-                                self.tokens_file)
-                    return json.load(f)
+                    encrypted = f.read()
+                logger.info("Loaded tokens from local file %s",
+                            self.tokens_file)
+                plaintext = self._decrypt(encrypted)
+                return json.loads(plaintext.decode())
             else:
                 logger.warning(
                     "Local tokens file %s not found, starting fresh.",
@@ -128,8 +156,10 @@ class TokenManager:
         """Save tokens to the tokens file with thread safety."""
         with self._lock:
             try:
+                plaintext = json.dumps(self._tokens).encode()
+                encrypted = self._encrypt(plaintext)
                 with open(self.tokens_file, "w") as f:
-                    json.dump(self._tokens, f)
+                    f.write(encrypted)
 
                 storage_client = storage.Client()
                 bucket = storage_client.bucket(os.getenv("GCS_BUCKET_NAME"))
