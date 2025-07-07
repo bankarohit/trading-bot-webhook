@@ -21,6 +21,7 @@ class TestConfigModule(unittest.TestCase):
             "FYERS_AUTH_CODE": "code",
             "GCS_BUCKET_NAME": "bucket",
             "GCS_TOKENS_FILE": "tokens.json",
+            "KMS_KEY_NAME": "projects/test/locations/global/keyRings/test/cryptoKeys/test",
         }
         with patch.dict(os.environ, env, clear=True):
             # Should not raise when all variables are present
@@ -36,6 +37,7 @@ class TestConfigModule(unittest.TestCase):
             "FYERS_PIN": "1234",
             "GCS_BUCKET_NAME": "bucket",
             "GCS_TOKENS_FILE": "tokens.json",
+            "KMS_KEY_NAME": "projects/test/locations/global/keyRings/test/cryptoKeys/test",
             # FYERS_AUTH_CODE intentionally omitted
         }
         with patch.dict(os.environ, env, clear=True):

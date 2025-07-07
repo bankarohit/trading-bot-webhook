@@ -17,6 +17,7 @@ def load_env_variables():
         "FYERS_AUTH_CODE",
         "GCS_BUCKET_NAME",
         "GCS_TOKENS_FILE",
+        "KMS_KEY_NAME",
     ]
 
     missing_vars = []

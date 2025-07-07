@@ -53,6 +53,7 @@ FYERS_PIN=1234
 WEBHOOK_SECRET_TOKEN=choose_a_secret
 GCS_BUCKET_NAME=your_bucket
 GCS_TOKENS_FILE=tokens/tokens.json
+KMS_KEY_NAME=projects/your-project/locations/global/keyRings/your-keyring/cryptoKeys/your-key
 ```
 
 Optionally you can control logging by setting:
@@ -71,6 +72,7 @@ LOG_FILE=/var/log/webhook.log
 3. Either set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the key path or mount the key at `/secrets/service_account.json`.
 
 These credentials are required for storing tokens in Google Cloud Storage.
+To encrypt token data, enable the **Cloud KMS** API and set the `KMS_KEY_NAME` environment variable to the full resource name of your symmetric key.
 
 3. **Install dependencies**
 
