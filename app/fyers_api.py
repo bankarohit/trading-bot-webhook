@@ -10,6 +10,7 @@ import logging
 import inspect
 import asyncio
 import app.utils as utils
+from app.token_manager import get_token_manager
 
 if utils._symbol_cache is None:
     utils.load_symbol_master()
@@ -170,6 +171,14 @@ async def get_ltp(symbol, fyersModelInstance, retries=DEFAULT_RETRIES):
             call_desc="quotes",
             retries=retries,
         )
+        if response.get("code") == 401:
+            get_token_manager().refresh_token()
+            fyersModelInstance = get_token_manager().get_fyers_client()
+            response = await _retry_api_call(
+                lambda: fyersModelInstance.quotes({"symbols": symbol}),
+                call_desc="quotes",
+                retries=retries,
+            )
         if response.get("s") == "ok" and response.get("d") and len(
                 response["d"]) > 0:
             return response.get("d", [{}])[0].get("v", {}).get("lp")
@@ -212,6 +221,14 @@ async def has_short_position(symbol, fyersModelInstance, retries=DEFAULT_RETRIES
             call_desc="positions",
             retries=retries,
         )
+        if response.get("code") == 401:
+            get_token_manager().refresh_token()
+            fyersModelInstance = get_token_manager().get_fyers_client()
+            response = await _retry_api_call(
+                fyersModelInstance.positions,
+                call_desc="positions",
+                retries=retries,
+            )
         logger.debug(f"Positions response: {response}")
         if response.get("s") != "ok":
             logger.warning(f"Positions API returned error: {response}")
@@ -290,6 +307,14 @@ async def place_order(symbol, qty, action, sl, tp, productType,
             call_desc="place_order",
             retries=retries,
         )
+        if response.get("code") == 401:
+            get_token_manager().refresh_token()
+            fyersModelInstance = get_token_manager().get_fyers_client()
+            response = await _retry_api_call(
+                lambda: fyersModelInstance.place_order(order_data),
+                call_desc="place_order",
+                retries=retries,
+            )
         logger.debug(f"Response from Fyers order API: {response}")
         return response
     except Exception as e:
