@@ -148,5 +148,5 @@ The suite covers token handling, route logic, Fyers integration and utility help
 
 ## Future Enhancements
 
-The design document outlines additional components such as a WebSocket listener for monitoring trades, plus optional deployment on GKE or extended alerting (e.g. Telegram). These can be built on top of the core webhook service contained here.
+See [docs/design.md](docs/design.md) for an architectural overview and future plans such as a WebSocket listener, optional deployment on GKE and extended alerting (e.g. Telegram).
 
