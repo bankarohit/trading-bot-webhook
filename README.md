@@ -65,6 +65,12 @@ LOG_LEVEL=DEBUG
 LOG_FILE=/var/log/webhook.log
 ```
 
+To forward logs directly to Google Cloud Logging set:
+
+```env
+USE_CLOUD_LOGGING=true
+```
+
 ### Google Service Account
 
 1. Create a service account in Google Cloud and enable the **Cloud Storage** API.
@@ -148,6 +154,25 @@ gcloud scheduler jobs create http refresh-fyers-token \
 ```
 
 This keeps the access token alive without manual intervention.
+
+## Monitoring & Alerts
+
+Structured logs are sent to Cloud Logging when `USE_CLOUD_LOGGING` is enabled.
+Create log-based metrics to count failed orders and token refresh errors:
+
+```bash
+gcloud logging metrics create order_failures \
+  --description="Webhook order errors" \
+  --log-filter="jsonPayload.event=\"order_failed\""
+
+gcloud logging metrics create token_refresh_errors \
+  --description="Fyers token refresh errors" \
+  --log-filter="jsonPayload.event=\"token_refresh_error\""
+```
+
+Set `NOTIFICATION_TOPIC` to a Pub/Sub topic or `NOTIFICATION_URL` to a webhook
+endpoint and the service will publish a message whenever a critical failure
+occurs.
 
 ## Testing
 
