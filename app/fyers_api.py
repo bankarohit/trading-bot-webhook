@@ -27,7 +27,8 @@ BACKOFF_FACTOR = 2
 
 async def _retry_api_call(func, *, call_desc="API call", retries=DEFAULT_RETRIES,
                           delay=INITIAL_DELAY,
-                          backoff=BACKOFF_FACTOR):
+                          backoff=BACKOFF_FACTOR,
+                          timeout=None):
     """Execute ``func`` with retries and exponential backoff.
 
     Parameters
@@ -55,7 +56,10 @@ async def _retry_api_call(func, *, call_desc="API call", retries=DEFAULT_RETRIES
     """
     for attempt in range(1, retries + 1):
         try:
-            result = func()
+            if timeout is not None:
+                result = func(timeout=timeout)
+            else:
+                result = func()
             if inspect.iscoroutine(result):
                 result = await result
             return result
@@ -143,7 +147,7 @@ def _get_default_qty(symbol):
         return 1
 
 
-async def get_ltp(symbol, fyersModelInstance, retries=DEFAULT_RETRIES):
+async def get_ltp(symbol, fyersModelInstance, retries=DEFAULT_RETRIES, timeout=None):
     """Fetch the latest traded price for a symbol from Fyers.
 
     Parameters
@@ -167,17 +171,19 @@ async def get_ltp(symbol, fyersModelInstance, retries=DEFAULT_RETRIES):
 
     try:
         response = await _retry_api_call(
-            lambda: fyersModelInstance.quotes({"symbols": symbol}),
+            lambda timeout=None: fyersModelInstance.quotes({"symbols": symbol}, timeout=timeout),
             call_desc="quotes",
             retries=retries,
+            timeout=timeout,
         )
         if response.get("code") == 401:
             get_token_manager().refresh_token()
             fyersModelInstance = get_token_manager().get_fyers_client()
             response = await _retry_api_call(
-                lambda: fyersModelInstance.quotes({"symbols": symbol}),
+                lambda timeout=None: fyersModelInstance.quotes({"symbols": symbol}, timeout=timeout),
                 call_desc="quotes",
                 retries=retries,
+                timeout=timeout,
             )
         if response.get("s") == "ok" and response.get("d") and len(
                 response["d"]) > 0:
@@ -191,7 +197,7 @@ async def get_ltp(symbol, fyersModelInstance, retries=DEFAULT_RETRIES):
         return {"code": -1, "message": str(e)}
 
 
-async def has_short_position(symbol, fyersModelInstance, retries=DEFAULT_RETRIES):
+async def has_short_position(symbol, fyersModelInstance, retries=DEFAULT_RETRIES, timeout=None):
     """Return ``True`` if there is an open short position for ``symbol``.
 
     The function calls ``fyersModelInstance.positions()`` and inspects the
@@ -217,17 +223,19 @@ async def has_short_position(symbol, fyersModelInstance, retries=DEFAULT_RETRIES
 
     try:
         response = await _retry_api_call(
-            fyersModelInstance.positions,
+            lambda timeout=None: fyersModelInstance.positions(timeout=timeout),
             call_desc="positions",
             retries=retries,
+            timeout=timeout,
         )
         if response.get("code") == 401:
             get_token_manager().refresh_token()
             fyersModelInstance = get_token_manager().get_fyers_client()
             response = await _retry_api_call(
-                fyersModelInstance.positions,
+                lambda timeout=None: fyersModelInstance.positions(timeout=timeout),
                 call_desc="positions",
                 retries=retries,
+                timeout=timeout,
             )
         logger.debug(f"Positions response: {response}")
         if response.get("s") != "ok":
@@ -251,7 +259,7 @@ async def has_short_position(symbol, fyersModelInstance, retries=DEFAULT_RETRIES
 
 
 async def place_order(symbol, qty, action, sl, tp, productType,
-                      fyersModelInstance, retries=DEFAULT_RETRIES):
+                      fyersModelInstance, retries=DEFAULT_RETRIES, timeout=None):
     """Place a market order with Fyers after validating parameters.
 
     Parameters
@@ -303,17 +311,19 @@ async def place_order(symbol, qty, action, sl, tp, productType,
     try:
         logger.debug(f"Placing order with data: {order_data}")
         response = await _retry_api_call(
-            lambda: fyersModelInstance.place_order(order_data),
+            lambda timeout=None: fyersModelInstance.place_order(order_data, timeout=timeout),
             call_desc="place_order",
             retries=retries,
+            timeout=timeout,
         )
         if response.get("code") == 401:
             get_token_manager().refresh_token()
             fyersModelInstance = get_token_manager().get_fyers_client()
             response = await _retry_api_call(
-                lambda: fyersModelInstance.place_order(order_data),
+                lambda timeout=None: fyersModelInstance.place_order(order_data, timeout=timeout),
                 call_desc="place_order",
                 retries=retries,
+                timeout=timeout,
             )
         logger.debug(f"Response from Fyers order API: {response}")
         return response
