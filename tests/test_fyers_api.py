@@ -14,6 +14,7 @@ os.environ.setdefault("WEBHOOK_SECRET_TOKEN", "dummy")
 os.environ.setdefault("FYERS_PIN", "0000")
 os.environ.setdefault("FYERS_AUTH_CODE", "dummy")
 
+import app.fyers_api
 from app.fyers_api import (_validate_order_params, _get_default_qty, get_ltp,
                            place_order, has_short_position)
 
@@ -231,7 +232,8 @@ class TestFyersAPI(unittest.TestCase):
 
         # Verify function handles exception correctly
         self.assertEqual(result, {"code": -1, "message": "API Error"})
-        mock_logger.exception.assert_called_once()
+        self.assertEqual(mock_logger.exception.call_count, 2)
+        self.assertEqual(self.mock_fyers.quotes.call_count, app.fyers_api.DEFAULT_RETRIES)
 
     # Tests for place_order
     @patch('app.fyers_api._validate_order_params',
@@ -326,7 +328,9 @@ class TestFyersAPI(unittest.TestCase):
 
         # Verify function handles exception correctly
         self.assertEqual(result, {"code": -1, "message": "Order API Error"})
-        mock_logger.exception.assert_called_once()
+        self.assertEqual(mock_logger.exception.call_count, 2)
+        self.assertEqual(self.mock_fyers.place_order.call_count,
+                         app.fyers_api.DEFAULT_RETRIES)
 
     def test_has_short_position_true(self):
         """has_short_position returns True when netQty is negative."""
@@ -357,6 +361,26 @@ class TestFyersAPI(unittest.TestCase):
         result = asyncio.run(has_short_position("NSE:SBIN-EQ",
                                                 self.mock_fyers))
         self.assertFalse(result)
+
+    @patch('app.fyers_api.get_token_manager')
+    def test_get_ltp_auto_refresh(self, mock_mgr):
+        mock_mgr.return_value.refresh_token = MagicMock()
+        mock_mgr.return_value.get_fyers_client.return_value = self.mock_fyers
+        self.mock_fyers.quotes.side_effect = [{"code": 401}, {"s": "ok", "d": [{"v": {"lp": 100}}]}]
+        result = asyncio.run(get_ltp("NSE:SBIN-EQ", self.mock_fyers))
+        self.assertEqual(result, 100)
+        mock_mgr.return_value.refresh_token.assert_called_once()
+
+    @patch('app.fyers_api.get_token_manager')
+    @patch('app.fyers_api._validate_order_params', return_value=(10,5.0,15.0,"CNC"))
+    def test_place_order_auto_refresh(self, mock_val, mock_mgr):
+        mock_mgr.return_value.refresh_token = MagicMock()
+        mock_mgr.return_value.get_fyers_client.return_value = self.mock_fyers
+        self.mock_fyers.place_order.side_effect = [{"code":401}, {"code":0}]
+
+        result = asyncio.run(place_order("NSE:SBIN-EQ",10,"BUY",5,15,"CNC",self.mock_fyers))
+        self.assertEqual(result, {"code":0})
+        mock_mgr.return_value.refresh_token.assert_called_once()
 
 
 if __name__ == '__main__':

@@ -9,6 +9,7 @@ This project provides a Flask based webhook service that connects TradingView al
 - **Token management utilities** to generate and refresh access tokens.
 - **Health check endpoint** for readiness probes.
 - Unit tests covering the core modules.
+- **Resilient API calls** with exponential backoff (3 attempts).
 
 ## Architecture
 
@@ -135,6 +136,19 @@ calculates them from the current LTP when they are omitted or invalid.
 - `POST /refresh-token` – refresh the Fyers access token.
 - `GET /readyz` – basic health check.
 
+### Automated Token Refresh
+
+Schedule a Cloud Scheduler job to call `/refresh-token` daily:
+
+```
+gcloud scheduler jobs create http refresh-fyers-token \
+  --schedule="0 0 * * *" \
+  --uri="https://<your-service-url>/refresh-token" \
+  --http-method=POST
+```
+
+This keeps the access token alive without manual intervention.
+
 ## Testing
 
 Install dependencies with `pip install -r requirements.txt` before running the tests. Using a virtual environment is recommended.
@@ -150,5 +164,5 @@ The suite covers token handling, route logic, Fyers integration and utility help
 
 ## Future Enhancements
 
-The design document outlines additional components such as a WebSocket listener for monitoring trades, plus optional deployment on GKE or extended alerting (e.g. Telegram). These can be built on top of the core webhook service contained here.
+See [docs/design.md](docs/design.md) for an architectural overview and future plans such as a WebSocket listener, optional deployment on GKE and extended alerting (e.g. Telegram).
 
