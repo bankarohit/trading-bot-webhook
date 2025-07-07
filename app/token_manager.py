@@ -12,7 +12,7 @@ import hashlib
 import requests
 import logging
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from fyers_apiv3 import fyersModel
 from app.config import load_env_variables
 from google.cloud import storage
@@ -61,6 +61,7 @@ def get_token_manager():
 
 
 class TokenManager:
+    TOKEN_VALIDITY_SECONDS = 86400
 
     def __init__(self, tokens_file=TOKENS_FILE):
         """Initialize the TokenManager and prepare the environment.
@@ -86,6 +87,7 @@ class TokenManager:
         self._session = self._init_session_model()
         self._fyers = None  # Will be lazily initialized when needed
         self._lock = threading.RLock()  # Reentrant lock for thread safety
+        self.token_validity_seconds = self.TOKEN_VALIDITY_SECONDS
 
     def _load_tokens(self):
         """Retrieve tokens from GCS first, then fall back to the local file."""
@@ -156,6 +158,16 @@ class TokenManager:
                                        grant_type="authorization_code",
                                        state="sample")
 
+    def _is_token_expired(self):
+        expiry = self._tokens.get("expires_at")
+        if not expiry:
+            return False
+        try:
+            exp_time = datetime.fromisoformat(expiry)
+        except Exception:
+            return False
+        return datetime.utcnow() >= exp_time
+
     def get_auth_code_url(self):
         """Generate and return the authorization code URL."""
         return self._session.generate_authcode()
@@ -163,9 +175,17 @@ class TokenManager:
     def get_access_token(self):
         """Get a valid access token, refreshing or generating if necessary."""
         with self._lock:
-            # If we have a token, use it
-            if "access_token" in self._tokens:
+            if "access_token" in self._tokens and not self._is_token_expired():
                 return self._tokens["access_token"]
+            if "access_token" in self._tokens and self._is_token_expired():
+                try:
+                    token = self.refresh_token()
+                    if token:
+                        return token
+                except RefreshTokenError as e:
+                    logger.info(
+                        "Token expired and refresh failed, generating new token: %s",
+                        e)
 
             # Try to refresh the token
             try:
@@ -203,6 +223,12 @@ class TokenManager:
                     if "refresh_token" in response:
                         self._tokens["refresh_token"] = response[
                             "refresh_token"]
+
+                    now = datetime.utcnow()
+                    self._tokens["issued_at"] = now.isoformat()
+                    self._tokens["expires_at"] = (
+                        now + timedelta(seconds=self.token_validity_seconds)
+                    ).isoformat()
 
                     self._save_tokens()
 
@@ -262,6 +288,12 @@ class TokenManager:
                     if current_refresh_token and "refresh_token" not in response:
                         self._tokens["refresh_token"] = current_refresh_token
 
+                    now = datetime.utcnow()
+                    self._tokens["issued_at"] = now.isoformat()
+                    self._tokens["expires_at"] = (
+                        now + timedelta(seconds=self.token_validity_seconds)
+                    ).isoformat()
+
                     self._save_tokens()
 
                     # Immediately initialize a new Fyers client
@@ -306,6 +338,11 @@ class TokenManager:
     def get_fyers_client(self):
         """Get a configured Fyers client with a valid access token."""
         with self._lock:
+            if self._is_token_expired():
+                try:
+                    self.refresh_token()
+                except RefreshTokenError as e:
+                    logger.error("Auto refresh failed: %s", e)
             if self._fyers is None:
                 self._initialize_fyers_client()
             return self._fyers

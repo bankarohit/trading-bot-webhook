@@ -9,6 +9,7 @@ tests.
 import logging
 import inspect
 import app.utils as utils
+from app.token_manager import get_token_manager
 
 if utils._symbol_cache is None:
     utils.load_symbol_master()
@@ -112,6 +113,12 @@ async def get_ltp(symbol, fyersModelInstance):
         response = fyersModelInstance.quotes({"symbols": symbol})
         if inspect.iscoroutine(response):
             response = await response
+        if response.get("code") == 401:
+            get_token_manager().refresh_token()
+            fyersModelInstance = get_token_manager().get_fyers_client()
+            response = fyersModelInstance.quotes({"symbols": symbol})
+            if inspect.iscoroutine(response):
+                response = await response
         if response.get("s") == "ok" and response.get("d") and len(
                 response["d"]) > 0:
             return response.get("d", [{}])[0].get("v", {}).get("lp")
@@ -150,6 +157,12 @@ async def has_short_position(symbol, fyersModelInstance):
         response = fyersModelInstance.positions()
         if inspect.iscoroutine(response):
             response = await response
+        if response.get("code") == 401:
+            get_token_manager().refresh_token()
+            fyersModelInstance = get_token_manager().get_fyers_client()
+            response = fyersModelInstance.positions()
+            if inspect.iscoroutine(response):
+                response = await response
         logger.debug(f"Positions response: {response}")
         if response.get("s") != "ok":
             logger.warning(f"Positions API returned error: {response}")
@@ -224,6 +237,12 @@ async def place_order(symbol, qty, action, sl, tp, productType,
         response = fyersModelInstance.place_order(order_data)
         if inspect.iscoroutine(response):
             response = await response
+        if response.get("code") == 401:
+            get_token_manager().refresh_token()
+            fyersModelInstance = get_token_manager().get_fyers_client()
+            response = fyersModelInstance.place_order(order_data)
+            if inspect.iscoroutine(response):
+                response = await response
         logger.debug(f"Response from Fyers order API: {response}")
         return response
     except Exception as e:

@@ -133,6 +133,19 @@ calculates them from the current LTP when they are omitted or invalid.
 - `POST /refresh-token` – refresh the Fyers access token.
 - `GET /readyz` – basic health check.
 
+### Automated Token Refresh
+
+Schedule a Cloud Scheduler job to call `/refresh-token` daily:
+
+```
+gcloud scheduler jobs create http refresh-fyers-token \
+  --schedule="0 0 * * *" \
+  --uri="https://<your-service-url>/refresh-token" \
+  --http-method=POST
+```
+
+This keeps the access token alive without manual intervention.
+
 ## Testing
 
 Install dependencies with `pip install -r requirements.txt` before running the tests. Using a virtual environment is recommended.

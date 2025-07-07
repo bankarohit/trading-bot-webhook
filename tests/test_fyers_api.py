@@ -358,6 +358,26 @@ class TestFyersAPI(unittest.TestCase):
                                                 self.mock_fyers))
         self.assertFalse(result)
 
+    @patch('app.fyers_api.get_token_manager')
+    def test_get_ltp_auto_refresh(self, mock_mgr):
+        mock_mgr.return_value.refresh_token = MagicMock()
+        mock_mgr.return_value.get_fyers_client.return_value = self.mock_fyers
+        self.mock_fyers.quotes.side_effect = [{"code": 401}, {"s": "ok", "d": [{"v": {"lp": 100}}]}]
+        result = asyncio.run(get_ltp("NSE:SBIN-EQ", self.mock_fyers))
+        self.assertEqual(result, 100)
+        mock_mgr.return_value.refresh_token.assert_called_once()
+
+    @patch('app.fyers_api.get_token_manager')
+    @patch('app.fyers_api._validate_order_params', return_value=(10,5.0,15.0,"CNC"))
+    def test_place_order_auto_refresh(self, mock_val, mock_mgr):
+        mock_mgr.return_value.refresh_token = MagicMock()
+        mock_mgr.return_value.get_fyers_client.return_value = self.mock_fyers
+        self.mock_fyers.place_order.side_effect = [{"code":401}, {"code":0}]
+
+        result = asyncio.run(place_order("NSE:SBIN-EQ",10,"BUY",5,15,"CNC",self.mock_fyers))
+        self.assertEqual(result, {"code":0})
+        mock_mgr.return_value.refresh_token.assert_called_once()
+
 
 if __name__ == '__main__':
     unittest.main()

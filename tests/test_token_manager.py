@@ -274,6 +274,8 @@ class TestTokenManager(unittest.TestCase):
         self.assertEqual(token, "new_token")
         self.assertEqual(manager._tokens["access_token"], "new_token")
         self.assertEqual(manager._tokens["refresh_token"], "new_refresh")
+        self.assertIn("issued_at", manager._tokens)
+        self.assertIn("expires_at", manager._tokens)
 
     @patch.dict(os.environ, {},
                 clear=False)  # Remove FYERS_AUTH_CODE if present
@@ -351,6 +353,8 @@ class TestTokenManager(unittest.TestCase):
         self.assertEqual(manager._tokens["access_token"], "refreshed_token")
         self.assertEqual(manager._tokens["refresh_token"],
                          "test_refresh")  # Original refresh token preserved
+        self.assertIn("issued_at", manager._tokens)
+        self.assertIn("expires_at", manager._tokens)
 
         # Verify correct API call
         mock_post.assert_called_once()
@@ -414,6 +418,18 @@ class TestTokenManager(unittest.TestCase):
 
         with self.assertRaises(RefreshTokenError):
             manager.refresh_token()
+
+    @patch("app.token_manager.TokenManager.refresh_token", return_value="newtok")
+    def test_get_access_token_expired(self, mock_refresh):
+        manager = TokenManager()
+        manager._tokens = {
+            "access_token": "old",
+            "refresh_token": "r",
+            "expires_at": "2000-01-01T00:00:00"
+        }
+        token = manager.get_access_token()
+        self.assertEqual(token, "newtok")
+        mock_refresh.assert_called_once()
 
     def test_initialize_fyers_client_no_token(self):
         """Test client initialization with no access token."""
