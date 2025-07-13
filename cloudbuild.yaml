@@ -1,4 +1,14 @@
 steps:
+  - name: 'python:3.12-slim'
+    id: 'Run tests'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -e
+        apt-get update && apt-get install -y --no-install-recommends build-essential libffi-dev libssl-dev ca-certificates
+        pip install --no-cache-dir -r requirements.txt
+        pytest -q
   - name: 'gcr.io/cloud-builders/docker'
     args: [
       'build',
@@ -20,7 +30,8 @@ steps:
       '--region=asia-south1',
       '--platform=managed',
       '--allow-unauthenticated',
-      '--service-account=trading-bot-webhook@trading-bot-webhook.iam.gserviceaccount.com'
+      '--service-account=trading-bot-webhook@trading-bot-webhook.iam.gserviceaccount.com',
+      '--quiet'
     ]
 
 options:

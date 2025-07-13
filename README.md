@@ -103,7 +103,7 @@ docker compose up
 
 ## Deployment
 
-You can deploy the container to Google Cloud Run or any other container platform such as GKE. A `cloudbuild.yaml` file is provided to automate building and deploying the image. Run the following command:
+You can deploy the container to Google Cloud Run or any other container platform such as GKE. A `cloudbuild.yaml` file is provided to automate building, testing and deploying the image. Cloud Build installs the dependencies, runs the test suite and only then builds the container. Trigger a build with:
 
 ```bash
 gcloud builds submit --config cloudbuild.yaml

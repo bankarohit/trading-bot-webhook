@@ -1,22 +1,22 @@
 FROM python:3.12-slim
 
-# Install system dependencies, including CA certificates
-RUN apt-get update && apt-get install -y \
-build-essential \
-libffi-dev \
-libssl-dev \
-ca-certificates \
-&& rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+
+# Install build dependencies and Python packages
+COPY requirements.txt ./
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        libffi-dev \
+        libssl-dev \
+        ca-certificates && \
+    pip install --no-cache-dir -r requirements.txt && \
+    apt-get purge -y --auto-remove build-essential && \
+    rm -rf /var/lib/apt/lists/*
 
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
