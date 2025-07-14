@@ -287,6 +287,23 @@ class TestRoutes(unittest.TestCase):
 
     @patch("app.routes.get_fyers")
     @patch("app.routes.get_access_token")
+    def test_health_check_bad_request(self, mock_get_token, mock_get_fyers):
+        mock_get_token.return_value = "tok"
+        mock_fyers = MagicMock()
+        mock_fyers.get_profile = AsyncMock(
+            return_value={"s": "error", "code": -99, "message": "Bad request"}
+        )
+        mock_get_fyers.return_value = mock_fyers
+
+        response = self.client.get("/readyz")
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(
+            response.get_json()["message"],
+            "Fyers API ping failed: {'s': 'error', 'code': -99, 'message': 'Bad request'}"
+        )
+
+    @patch("app.routes.get_fyers")
+    @patch("app.routes.get_access_token")
     def test_health_check_exception(self, mock_get_token, mock_get_fyers):
         mock_get_token.return_value = "valid"
         mock_get_fyers.side_effect = Exception("boom")
