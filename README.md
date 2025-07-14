@@ -90,6 +90,8 @@ This project requires **Flask 2.0 or higher** in order to use asynchronous route
    1. Call `GET /auth-url` to open the Fyers login page.
    2. Complete the login, copy the authorization code and set `FYERS_AUTH_CODE` in `.env`.
    3. Run `POST /generate-token` once. This creates `tokens.json` locally (and in GCS if configured).
+      The file is saved in base64-encoded form but plain JSON tokens from earlier
+      versions are still accepted.
 
    Until this step is done the `/readyz` health check will fail with a "Bad request" error from Fyers.
 
@@ -115,10 +117,10 @@ You can deploy the container to Google Cloud Run or any other container platform
 ```bash
 gcloud builds submit --config cloudbuild.yaml
 ```
-The container runs using **Gunicorn** with the command:
+The container runs using **Uvicorn** with the command:
 
 ```bash
-gunicorn -b 0.0.0.0:8080 main:app
+uvicorn main:asgi_app --host 0.0.0.0 --port 8080
 ```
 
 
