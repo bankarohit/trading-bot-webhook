@@ -22,6 +22,10 @@ from app.notifications import send_notification
 logger = logging.getLogger(__name__)
 
 TOKENS_FILE = "tokens.json"
+# Default location for the Google service account key. This allows token
+# storage in Cloud Storage without requiring the caller to set
+# ``GOOGLE_APPLICATION_CREDENTIALS`` explicitly.
+CREDS_FILE = "/secrets/service_account.json"
 
 # Thread-safe singleton
 _token_manager_instance = None
@@ -91,6 +95,15 @@ class TokenManager:
         self._lock = threading.RLock()  # Reentrant lock for thread safety
         self.token_validity_seconds = self.TOKEN_VALIDITY_SECONDS
 
+    def _get_storage_client(self):
+        """Return a Google Cloud Storage client using the service account key
+        if available."""
+
+        cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", CREDS_FILE)
+        if os.path.exists(cred_path):
+            return storage.Client.from_service_account_json(cred_path)
+        return storage.Client()
+
     def _encrypt(self, data: bytes) -> str:
         """Encode bytes to a base64 string."""
         try:
@@ -110,7 +123,7 @@ class TokenManager:
     def _load_tokens(self):
         """Retrieve tokens from GCS first, then fall back to the local file."""
         try:
-            storage_client = storage.Client()
+            storage_client = self._get_storage_client()
             bucket = storage_client.bucket(os.getenv("GCS_BUCKET_NAME"))
             blob = bucket.blob(
                 os.getenv("GCS_TOKENS_FILE", "tokens/tokens.json"))
@@ -157,7 +170,7 @@ class TokenManager:
                 with open(self.tokens_file, "w") as f:
                     f.write(encrypted)
 
-                storage_client = storage.Client()
+                storage_client = self._get_storage_client()
                 bucket = storage_client.bucket(os.getenv("GCS_BUCKET_NAME"))
                 blob = bucket.blob(
                     os.getenv("GCS_TOKENS_FILE", "tokens/tokens.json"))
