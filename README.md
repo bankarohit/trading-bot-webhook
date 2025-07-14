@@ -91,7 +91,7 @@ This project requires **Flask 2.0 or higher** in order to use asynchronous route
    2. Complete the login, copy the authorization code and set `FYERS_AUTH_CODE` in `.env`.
    3. Run `POST /generate-token` once. This creates `tokens.json` locally (and in GCS if configured).
 
-   Until this step is done the `/readyz` health check will fail with a "Bad request" error from Fyers.
+   Until this step is done the `/readyz` health check will fail with an "Access token unavailable or invalid" message.
 
 5. **Run locally**
 

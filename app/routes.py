@@ -44,6 +44,10 @@ async def health_check():
             profile_response = await profile_response
 
         if profile_response.get("s") != "ok":
+            message = profile_response.get("message", "")
+            code = profile_response.get("code")
+            if message == "Bad request" or code == -99:
+                raise Exception("Access token unavailable or invalid")
             raise Exception(f"Fyers API ping failed: {profile_response}")
 
         return jsonify({
