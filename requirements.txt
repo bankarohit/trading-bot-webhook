@@ -1,4 +1,4 @@
-flask
+flask>=2.0
 asgiref>=3.7
 requests
 python-dotenv

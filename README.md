@@ -85,6 +85,7 @@ To encrypt token data, enable the **Cloud KMS** API and set the `KMS_KEY_NAME` e
 ```bash
 pip install -r requirements.txt
 ```
+This project requires **Flask 2.0 or higher** in order to use asynchronous routes.
 
 4. **Run locally**
 
