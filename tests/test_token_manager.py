@@ -39,7 +39,6 @@ class TestTokenManager(unittest.TestCase):
                 "WEBHOOK_SECRET_TOKEN": "test_webhook_token",
                 "FYERS_PIN": "1234",
                 "FYERS_AUTH_CODE": "dummy_auth_code",
-                "KMS_KEY_NAME": "projects/test/locations/global/keyRings/test/cryptoKeys/test"
             })
         self.env_patcher.start()
 

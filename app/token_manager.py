@@ -16,7 +16,7 @@ import base64
 from datetime import datetime, timedelta
 from fyers_apiv3 import fyersModel
 from app.config import load_env_variables
-from google.cloud import storage, kms
+from google.cloud import storage
 from app.notifications import send_notification
 
 logger = logging.getLogger(__name__)
@@ -92,24 +92,17 @@ class TokenManager:
         self.token_validity_seconds = self.TOKEN_VALIDITY_SECONDS
 
     def _encrypt(self, data: bytes) -> str:
-        """Encrypt bytes using Cloud KMS and return base64 ciphertext."""
+        """Encode bytes to a base64 string."""
         try:
-            client = kms.KeyManagementServiceClient()
-            key_name = os.getenv("KMS_KEY_NAME")
-            resp = client.encrypt(request={"name": key_name, "plaintext": data})
-            return base64.b64encode(resp.ciphertext).decode()
+            return base64.b64encode(data).decode()
         except Exception as e:
             logger.exception("Encryption failed: %s", e)
             raise TokenManagerException(f"Encryption failed: {e}")
 
     def _decrypt(self, data: str) -> bytes:
-        """Decrypt base64 ciphertext using Cloud KMS and return plaintext."""
+        """Decode a base64 string back to bytes."""
         try:
-            client = kms.KeyManagementServiceClient()
-            key_name = os.getenv("KMS_KEY_NAME")
-            ciphertext = base64.b64decode(data)
-            resp = client.decrypt(request={"name": key_name, "ciphertext": ciphertext})
-            return resp.plaintext
+            return base64.b64decode(data)
         except Exception as e:
             logger.exception("Decryption failed: %s", e)
             raise TokenManagerException(f"Decryption failed: {e}")
