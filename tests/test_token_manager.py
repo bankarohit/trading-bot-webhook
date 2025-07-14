@@ -69,7 +69,11 @@ class TestTokenManager(unittest.TestCase):
         self.mock_init_session_model = self.init_session_patcher.start()
 
         # Patch heavy external dependencies
-        self.gcs_client_patcher = patch('google.cloud.storage.Client')
+        self.gcs_client_mock = MagicMock()
+        self.gcs_client_patcher = patch(
+            'app.token_manager.TokenManager._get_storage_client',
+            return_value=self.gcs_client_mock
+        )
         self.mock_gcs_client = self.gcs_client_patcher.start()
 
         self.fyers_model_patcher = patch(
@@ -105,12 +109,12 @@ class TestTokenManager(unittest.TestCase):
         """Test loading tokens when file doesn't exist."""
         self.load_tokens_patcher.stop()
         # Ensure the mocked GCS client returns a blob that does not exist
-        self.mock_gcs_client.return_value.bucket.return_value.blob.return_value.exists.return_value = False
+        self.gcs_client_mock.bucket.return_value.blob.return_value.exists.return_value = False
 
         manager = TokenManager()
         self.assertEqual(manager._tokens, {})
 
-    @patch("google.cloud.storage.Client")
+    @patch("app.token_manager.TokenManager._get_storage_client")
     @patch("builtins.open",
            new_callable=mock_open,
            read_data=
@@ -161,7 +165,7 @@ class TestTokenManager(unittest.TestCase):
                                                     mock_exists):
         """Load tokens from local file if GCS blob is missing."""
         self.load_tokens_patcher.stop()
-        self.mock_gcs_client.return_value.bucket.return_value.blob.return_value.exists.return_value = False
+        self.gcs_client_mock.bucket.return_value.blob.return_value.exists.return_value = False
 
         manager = TokenManager()
 
@@ -169,7 +173,8 @@ class TestTokenManager(unittest.TestCase):
         self.assertEqual(manager._tokens["refresh_token"], "local_refresh")
         mock_file.assert_called_with("tokens.json", "r")
 
-    @patch("google.cloud.storage.Client", side_effect=Exception("GCS error"))
+    @patch("app.token_manager.TokenManager._get_storage_client",
+           side_effect=Exception("GCS error"))
     @patch("os.path.exists", return_value=True)
     @patch("builtins.open",
            new_callable=mock_open,
@@ -184,6 +189,28 @@ class TestTokenManager(unittest.TestCase):
 
         self.assertEqual(manager._tokens["access_token"], "local_token")
         self.assertEqual(manager._tokens["refresh_token"], "local_refresh")
+        mock_file.assert_called_with("tokens.json", "r")
+
+    @patch("app.token_manager.TokenManager._get_storage_client")
+    @patch("builtins.open", new_callable=mock_open, read_data='{"access_token": "plain"}')
+    def test_load_tokens_plaintext(self, mock_file, mock_gcs_client):
+        """Handle tokens file that is not base64 encoded."""
+        self.load_tokens_patcher.stop()
+
+        mock_blob = MagicMock()
+        mock_blob.exists.return_value = True
+        mock_blob.download_to_filename.return_value = None
+
+        mock_bucket = MagicMock()
+        mock_bucket.blob.return_value = mock_blob
+        mock_client_instance = MagicMock()
+        mock_client_instance.bucket.return_value = mock_bucket
+        mock_gcs_client.return_value = mock_client_instance
+
+        with patch('app.token_manager.TokenManager._decrypt', side_effect=TokenManagerException('bad')):
+            manager = TokenManager()
+
+        self.assertEqual(manager._tokens["access_token"], "plain")
         mock_file.assert_called_with("tokens.json", "r")
 
     @patch("builtins.open", new_callable=mock_open)
