@@ -134,8 +134,12 @@ class TokenManager:
                 logger.info("Loaded tokens from %s into %s", gcs_path,
                             self.tokens_file)
                 with open(self.tokens_file, "r") as f:
-                    encrypted = f.read()
-                plaintext = self._decrypt(encrypted)
+                    raw = f.read()
+                try:
+                    plaintext = self._decrypt(raw)
+                except TokenManagerException:
+                    logger.warning("Tokens file not encoded; loading plaintext")
+                    plaintext = raw.encode()
                 return json.loads(plaintext.decode())
             else:
                 gcs_path = f"gs://{bucket.name}/{blob.name}"
@@ -148,10 +152,15 @@ class TokenManager:
         try:
             if os.path.exists(self.tokens_file):
                 with open(self.tokens_file, "r") as f:
-                    encrypted = f.read()
+                    raw = f.read()
                 logger.info("Loaded tokens from local file %s",
                             self.tokens_file)
-                plaintext = self._decrypt(encrypted)
+                try:
+                    plaintext = self._decrypt(raw)
+                except TokenManagerException:
+                    logger.warning(
+                        "Tokens file not encoded; loading plaintext")
+                    plaintext = raw.encode()
                 return json.loads(plaintext.decode())
             else:
                 logger.warning(

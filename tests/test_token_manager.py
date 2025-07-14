@@ -191,6 +191,28 @@ class TestTokenManager(unittest.TestCase):
         self.assertEqual(manager._tokens["refresh_token"], "local_refresh")
         mock_file.assert_called_with("tokens.json", "r")
 
+    @patch("app.token_manager.TokenManager._get_storage_client")
+    @patch("builtins.open", new_callable=mock_open, read_data='{"access_token": "plain"}')
+    def test_load_tokens_plaintext(self, mock_file, mock_gcs_client):
+        """Handle tokens file that is not base64 encoded."""
+        self.load_tokens_patcher.stop()
+
+        mock_blob = MagicMock()
+        mock_blob.exists.return_value = True
+        mock_blob.download_to_filename.return_value = None
+
+        mock_bucket = MagicMock()
+        mock_bucket.blob.return_value = mock_blob
+        mock_client_instance = MagicMock()
+        mock_client_instance.bucket.return_value = mock_bucket
+        mock_gcs_client.return_value = mock_client_instance
+
+        with patch('app.token_manager.TokenManager._decrypt', side_effect=TokenManagerException('bad')):
+            manager = TokenManager()
+
+        self.assertEqual(manager._tokens["access_token"], "plain")
+        mock_file.assert_called_with("tokens.json", "r")
+
     @patch("builtins.open", new_callable=mock_open)
     def test_save_tokens_success(self, mock_file):
         """Test successful saving of tokens to file."""
