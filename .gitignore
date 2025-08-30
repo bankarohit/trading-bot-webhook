@@ -29,4 +29,5 @@ secrets
 venv
 test_ltp.py
 diagnose_gsheet.py
-
+Makefile
+.gitignore
