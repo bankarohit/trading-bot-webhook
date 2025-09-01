@@ -7,11 +7,6 @@ from app.token_manager import (
 
 logger = logging.getLogger(__name__)
 
-
-def _token_manager():
-    """Helper to lazily obtain the TokenManager instance."""
-    return get_token_manager()
-
 def get_fyers():
     """Return a ready-to-use Fyers client instance.
 

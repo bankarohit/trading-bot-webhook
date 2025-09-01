@@ -2,6 +2,20 @@ import os
 import logging
 from dotenv import load_dotenv
 
+# Ensure TLS verification works out-of-the-box for aiohttp and requests.
+# Many macOS Python installs lack a system CA bundle visible to OpenSSL.
+# By pointing SSL/Requests to certifi's CA file here, downstream clients
+# (including Fyers' aiohttp usage) succeed without extra setup.
+try:
+    import certifi  # requests dependency; should be available
+    _CERT_PATH = certifi.where()
+    os.environ.setdefault("SSL_CERT_FILE", _CERT_PATH)
+    os.environ.setdefault("REQUESTS_CA_BUNDLE", _CERT_PATH)
+except Exception:
+    # If certifi isn't available for some reason, proceed without forcing it.
+    # Requests will still use its own bundle; aiohttp may fail on some hosts.
+    pass
+
 logger = logging.getLogger(__name__)
 
 def load_env_variables():
@@ -17,6 +31,7 @@ def load_env_variables():
         "FYERS_AUTH_CODE",
         "GCS_BUCKET_NAME",
         "GCS_TOKENS_FILE",
+        "GOOGLE_APPLICATION_CREDENTIALS",
     ]
 
     missing_vars = []

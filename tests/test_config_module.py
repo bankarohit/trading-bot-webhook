@@ -21,6 +21,7 @@ class TestConfigModule(unittest.TestCase):
             "FYERS_AUTH_CODE": "code",
             "GCS_BUCKET_NAME": "bucket",
             "GCS_TOKENS_FILE": "tokens.json",
+            "GOOGLE_APPLICATION_CREDENTIALS": "creds.json",
         }
         with patch.dict(os.environ, env, clear=True):
             # Should not raise when all variables are present

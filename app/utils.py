@@ -10,6 +10,7 @@ import ssl
 import certifi
 import urllib.request
 import io
+from google.cloud import storage 
 
 logger = logging.getLogger(__name__)
 
@@ -106,3 +107,11 @@ def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
         )
         return None
     
+def _get_storage_client():
+    """Helper to lazily obtain the Google Cloud Storage client."""
+    try:
+        path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        return storage.Client.from_service_account_json(path)
+    except Exception as e:
+        logger.error(f"Failed to create GCS client: {e}")
+        return None
