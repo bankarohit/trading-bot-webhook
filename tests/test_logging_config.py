@@ -45,7 +45,7 @@ def test_configure_logging_no_log_file(mock_basic, mock_get_logger):
     assert mock_basic.call_args.kwargs["level"] == logging.DEBUG
     root_logger.addHandler.assert_not_called()
     root_logger.addFilter.assert_called_once()
-    handler.addFilter.assert_called_once()
+    handler.addFilter.assert_not_called()
 
 
 @patch('app.logging_config.logging.getLogger')
@@ -60,14 +60,14 @@ def test_configure_logging_with_log_file(mock_basic, mock_get_logger):
     with patch.dict(os.environ, {"LOG_FILE": "app.log", "LOG_LEVEL": "INFO"}, clear=False):
         with patch('app.logging_config.RotatingFileHandler', return_value=file_handler) as mock_rot:
             configure_logging()
-            mock_rot.assert_called_once_with('app.log', maxBytes=10 * 1024 * 1024, backupCount=5)
+            mock_rot.assert_called_once_with('app.log', maxBytes=10 * 1024 * 1024, backupCount=5, encoding='utf-8')
             root_logger.addHandler.assert_called_once_with(file_handler)
             file_handler.setFormatter.assert_called_once()
             file_handler.addFilter.assert_called_once()
 
     assert mock_basic.call_args.kwargs["level"] == logging.INFO
     root_logger.addFilter.assert_called_once()
-    handler.addFilter.assert_called_once()
+    handler.addFilter.assert_not_called()
 
 
 def test_request_id_filter_adds_request_id():

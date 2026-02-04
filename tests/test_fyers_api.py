@@ -84,8 +84,8 @@ class TestFyersAPI(unittest.TestCase):
             productType="CNC")
 
         self.assertEqual(qty, 10)
-        self.assertEqual(sl, 10.0)  # Default value
-        self.assertEqual(tp, 20.0)  # Default value
+        self.assertIsNone(sl)  # No defaulting
+        self.assertIsNone(tp)  # No defaulting
         self.assertEqual(product_type, "CNC")
 
     @patch('app.fyers_api.logger')

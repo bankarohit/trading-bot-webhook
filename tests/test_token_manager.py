@@ -449,10 +449,9 @@ class TestTokenManager(unittest.TestCase):
             "expires_at": "2000-01-01T00:00:00"
         }
         token = manager.get_access_token()
-        # Current implementation returns existing token before checking expiry
-        self.assertEqual(token, "old")
-        # No auto-refresh is triggered before returning existing token
-        mock_refresh.assert_not_called()
+        # Expired token should be refreshed
+        self.assertEqual(token, "newtok")
+        mock_refresh.assert_called_once()
 
     def test_initialize_fyers_client_no_token(self):
         """Test client initialization with no access token."""

@@ -290,8 +290,15 @@ async def webhook():
                         time.time() - start,
                         extra={"request_id": get_request_id()})
             if isinstance(ltp, (int, float)):
-                sl = round(ltp * 0.15)
-                tp = round(ltp * 0.25)
+                # Direction-aware price levels (Fyers expects absolute price levels)
+                sl_pct = 0.15
+                tp_pct = 0.25
+                if action.upper() == "BUY":
+                    sl = round(ltp * (1 - sl_pct), 2)
+                    tp = round(ltp * (1 + tp_pct), 2)
+                else:
+                    sl = round(ltp * (1 + sl_pct), 2)
+                    tp = round(ltp * (1 - tp_pct), 2)
             else:
                 logger.warning(
                     "LTP invalid for %s: %s",
@@ -311,6 +318,14 @@ async def webhook():
             ltp = None
             sl = None
             tp = None
+
+        # If SL/TP are meant to be derived from LTP (override policy), then
+        # we must not silently fall back to defaults when LTP is unavailable.
+        if sl is None or tp is None:
+            return jsonify({
+                "success": False,
+                "error": "Unable to compute stopLoss/takeProfit because LTP is unavailable"
+            }), 400
 
         qty, sl, tp, productType = _validate_order_params(
             fyers_symbol, qty, sl, tp, productType)

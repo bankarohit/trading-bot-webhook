@@ -74,7 +74,7 @@ async def _retry_api_call(func, *, call_desc="API call", retries=DEFAULT_RETRIES
 
 
 def _validate_order_params(symbol, qty, sl, tp, productType):
-    """Sanitise and fill default order parameters.
+    """Sanitise order parameters (no SL/TP defaulting).
 
     Parameters
     ----------
@@ -84,11 +84,11 @@ def _validate_order_params(symbol, qty, sl, tp, productType):
         Quantity to trade. If ``None`` a sensible default is derived using
         :func:`_get_default_qty`.
     sl : float or str or ``None``
-        Desired stop loss in absolute points. Values ``<=0`` are replaced with
-        the default ``10.0``.
+        Stop-loss value. If provided, must be a positive number. If missing or
+        invalid, it is left as ``None`` for the caller to handle.
     tp : float or str or ``None``
-        Desired take profit in absolute points. Values ``<=0`` fall back to the
-        default ``20.0``.
+        Take-profit value. If provided, must be a positive number. If missing or
+        invalid, it is left as ``None`` for the caller to handle.
     productType : str
         Product type supported by Fyers (e.g. ``"CNC"``). Invalid values are
         logged and replaced with ``"BO"``.
@@ -101,8 +101,18 @@ def _validate_order_params(symbol, qty, sl, tp, productType):
 
     if not qty:
         qty = _get_default_qty(symbol)
-    sl = float(sl) if sl and float(sl) > 0 else 10.0
-    tp = float(tp) if tp and float(tp) > 0 else 20.0
+
+    def _to_positive_float(value):
+        if value is None:
+            return None
+        try:
+            f = float(value)
+        except Exception:
+            return None
+        return f if f > 0 else None
+
+    sl = _to_positive_float(sl)
+    tp = _to_positive_float(tp)
     if productType not in valid_product_types:
         logger.warning(
             f"Invalid productType '{productType}' for symbol {symbol}, defaulting to 'BO'"
@@ -285,6 +295,14 @@ async def place_order(symbol, qty, action, sl, tp, productType,
 
     qty, sl, tp, productType = _validate_order_params(symbol, qty, sl, tp,
                                                       productType)
+
+    # For bracket/cover orders, SL/TP are expected by the API. If the caller
+    # couldn't compute them, fail early with a consistent error shape.
+    if productType in {"BO", "CO"} and (sl is None or tp is None):
+        return {
+            "code": -1,
+            "message": "stopLoss/takeProfit required for BO/CO orders",
+        }
     order_data = {
         "symbol": symbol,
         "qty": qty,
@@ -296,9 +314,13 @@ async def place_order(symbol, qty, action, sl, tp, productType,
         "validity": "DAY",
         "disclosedQty": 0,
         "offlineOrder": False,
-        "stopLoss": sl,
-        "takeProfit": tp
     }
+    # Only include bracket legs when provided. For BO/CO, the early return above
+    # ensures these are present.
+    if sl is not None:
+        order_data["stopLoss"] = sl
+    if tp is not None:
+        order_data["takeProfit"] = tp
 
     try:
         logger.debug(f"Placing order with data: {order_data}")

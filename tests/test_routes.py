@@ -186,11 +186,9 @@ class TestRoutes(unittest.TestCase):
         response = self.client.post("/webhook", json=payload)
         data = response.get_json()
 
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(data["success"])
-        self.assertEqual(data["order_response"]["s"], "ok")
-        self.assertEqual(data["order_response"]["id"], "fallback-order")
-        self.assertNotIn("logged_to_sheet", data)
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(data["success"])
+        mock_order.assert_not_called()
 
     @patch("app.routes.get_fyers")
     @patch(
@@ -222,12 +220,9 @@ class TestRoutes(unittest.TestCase):
         response = self.client.post("/webhook", json=payload)
         data = response.get_json()
 
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(data["success"])
-        self.assertEqual(data["order_response"]["id"], "dict-order")
-        args = mock_order.call_args[0]
-        self.assertEqual(args[3], 10.0)
-        self.assertEqual(args[4], 20.0)
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(data["success"])
+        mock_order.assert_not_called()
 
     @patch("app.routes.place_order", new_callable=AsyncMock)
     @patch("app.routes.get_ltp", new_callable=AsyncMock, return_value=200)
@@ -416,7 +411,8 @@ class TestRoutes(unittest.TestCase):
             "qty": 75
         }
         response = self.client.post("/webhook", json=payload)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 400)
+        mock_order.assert_not_called()
 
 
 if __name__ == '__main__':

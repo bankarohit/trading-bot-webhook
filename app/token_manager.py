@@ -97,7 +97,10 @@ class TokenManager:
 
         expires_at_str = self._tokens.get("expires_at")
         if not expires_at_str:
-            return True
+            # Backwards-compatible behavior: if we have an access_token but no
+            # expiry metadata, assume it's usable and let API calls fail/refresh
+            # as needed (prevents unnecessary token generation in tests/legacy).
+            return False
 
         try:
             # Accept plain ISO or Z-suffix

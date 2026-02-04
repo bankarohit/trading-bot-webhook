@@ -5,6 +5,14 @@
 
 ---
 
+## ✅ Resolved / Partially Addressed (Recent Updates)
+
+- **SL/TP logic:** Direction-aware **price levels** (BUY: SL below LTP, TP above; SELL: opposite). No wrong “points” math. Always from LTP; user values overridden by design.
+- **SL/TP validation:** `_validate_order_params()` no longer defaults sl/tp to 10/20. Invalid/non-numeric sl/tp → `None` (no exception). BO/CO require valid sl/tp; if LTP unavailable, webhook returns 400 and no order is placed.
+- **Logging:** Production-style: handler setup wrapped in try/except (app doesn’t crash); optional CLOUD_LOG_LEVEL / FILE_LOG_LEVEL; UTF-8 file logging; directory creation for LOG_FILE.
+
+---
+
 ## 🚨 Critical Issues
 
 ### 1. **No Rate Limiting**
@@ -15,15 +23,15 @@
 - **Impact:** HIGH - Could result in financial loss or service disruption
 - **Fix Required:** Implement rate limiting (e.g., Flask-Limiter)
 
-### 2. **No Input Validation**
-- **Issue:** Missing validation for:
-  - `strikeprice` - No type/range checks (could be negative, non-numeric, extremely large)
-  - `qty` - No maximum limit (could place orders for millions of lots)
-  - `sl`/`tp` - No sanity checks (could be negative, zero, or unreasonably large)
-  - `action` - Only checks existence, not valid values
-  - `optionType` - No validation beyond existence
-- **Impact:** CRITICAL - Could place invalid orders causing financial loss
-- **Fix Required:** Add comprehensive input validation with type checking and range limits
+### 2. **No Input Validation (remaining gaps)**
+- **Issue:** Still missing:
+  - `strikeprice` - No type/range checks
+  - `qty` - No maximum limit
+  - `action` - Only existence, not enum (BUY/SELL)
+  - `optionType` - No enum (CE/PE)
+- **Note:** sl/tp are now safely parsed (invalid → None, no throw). Above gaps still allow invalid/dangerous orders.
+- **Impact:** CRITICAL
+- **Fix Required:** Type/range checks, max qty, allowed enums
 
 ### 3. **No Request Size Limits**
 - **Issue:** No `MAX_CONTENT_LENGTH` configured in Flask
@@ -236,41 +244,43 @@
 3. ✅ Retry logic with exponential backoff
 4. ✅ Docker containerization
 5. ✅ Health check endpoint (basic)
-6. ✅ Structured logging
-7. ✅ Unit test coverage
+6. ✅ Structured logging + production-style logging config (safe handler setup, optional levels)
+7. ✅ Unit test coverage (107 tests)
 8. ✅ Modular code structure
+9. ✅ SL/TP direction-aware price levels; fail-fast when LTP unavailable
+10. ✅ Safe sl/tp parsing (no runtime throw on invalid input)
 
 ---
 
 ## 🎯 Recommended Action Plan
 
 ### Phase 1: Critical Fixes (Before Production)
-1. ✅ Add comprehensive input validation
-2. ✅ Implement rate limiting
-3. ✅ Add maximum quantity limits
-4. ✅ Implement idempotency keys
-5. ✅ Add request size limits
-6. ✅ Add request timeouts
+1. Add comprehensive input validation (strikeprice, qty max, action/optionType enum)
+2. Implement rate limiting
+3. Add maximum quantity limits
+4. Implement idempotency keys
+5. Add request size limits
+6. Add request timeouts
 
 ### Phase 2: High Priority (Before Production)
-7. ✅ Add database for audit trail
-8. ✅ Implement circuit breaker
-9. ✅ Add comprehensive health checks
-10. ✅ Implement graceful shutdown
-11. ✅ Add symbol master refresh mechanism
+7. Add database for audit trail
+8. Implement circuit breaker
+9. Add comprehensive health checks
+10. Implement graceful shutdown
+11. Add symbol master refresh mechanism
 
 ### Phase 3: Medium Priority (Post-Launch)
-12. ✅ Add observability (metrics, tracing)
-13. ✅ Use Secret Manager
-14. ✅ Add load testing
-15. ✅ Improve error message sanitization
-16. ✅ Add IP whitelisting option
+12. Add observability (metrics, tracing)
+13. Use Secret Manager
+14. Add load testing
+15. Improve error message sanitization
+16. Add IP whitelisting option
 
 ### Phase 4: Nice to Have
-17. ✅ Add integration tests
-18. ✅ Add monitoring dashboard
-19. ✅ Implement disaster recovery plan
-20. ✅ Add CORS if needed
+17. Add integration tests
+18. Add monitoring dashboard
+19. Implement disaster recovery plan
+20. Add CORS if needed
 
 ---
 
