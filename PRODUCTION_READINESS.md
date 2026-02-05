@@ -10,6 +10,7 @@
 - **SL/TP logic:** Direction-aware **price levels** (BUY: SL below LTP, TP above; SELL: opposite). No wrong “points” math. Always from LTP; user values overridden by design.
 - **SL/TP validation:** `_validate_order_params()` no longer defaults sl/tp to 10/20. Invalid/non-numeric sl/tp → `None` (no exception). BO/CO require valid sl/tp; if LTP unavailable, webhook returns 400 and no order is placed.
 - **Logging:** Production-style: handler setup wrapped in try/except (app doesn’t crash); optional CLOUD_LOG_LEVEL / FILE_LOG_LEVEL; UTF-8 file logging; directory creation for LOG_FILE.
+- **Duplicate request protection:** Idempotency by key: optional `Idempotency-Key` header or `idempotency_key` in JSON. Successful (200) responses are cached for `IDEMPOTENCY_TTL_SECONDS` (default 24h). Replay returns stored response without placing order again.
 
 ---
 
@@ -38,13 +39,9 @@
 - **Impact:** MEDIUM - Could be DoS'd with large payloads
 - **Fix Required:** Set reasonable request size limits
 
-### 4. **No Duplicate Request Protection**
-- **Issue:** Same TradingView alert could be processed multiple times if:
-  - TradingView retries
-  - Network issues cause duplicate delivery
-  - Manual retry by user
-- **Impact:** HIGH - Could place duplicate orders
-- **Fix Required:** Implement idempotency keys or request deduplication
+### 4. **Duplicate Request Protection** ✅ Addressed
+- **Implemented:** Idempotency key support. Send `Idempotency-Key` header or `idempotency_key` in JSON; TTL configurable via `IDEMPOTENCY_TTL_SECONDS` (default 24h). Same key within TTL returns stored 200 without placing order again.
+- **Note:** Client (e.g. TradingView) must send a unique key per logical alert. In-memory store only; for multi-instance deployment use Redis or similar (future).
 
 ### 5. **No Order Audit Trail**
 - **Issue:** No persistent storage of:
@@ -206,11 +203,11 @@
 
 ## 📊 Summary
 
-### Critical Issues: 4
+### Critical Issues: 3 remaining
 1. No rate limiting
-2. No input validation
-3. No duplicate request protection
-4. No maximum quantity limits
+2. No input validation (remaining gaps)
+3. No maximum quantity limits
+4. ~~No duplicate request protection~~ ✅ Idempotency keys implemented
 
 ### High Priority: 6
 5. No order audit trail

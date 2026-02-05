@@ -14,6 +14,7 @@ os.environ.setdefault("FYERS_PIN", "0000")
 os.environ.setdefault("FYERS_AUTH_CODE", "dummy")
 
 from app.routes import webhook_bp
+from app.idempotency import IdempotencyStore
 
 
 class TestRoutes(unittest.TestCase):
@@ -100,6 +101,44 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(data["order_response"]["s"], "ok")
         self.assertEqual(data["order_response"]["id"], "order123")
         self.assertNotIn("logged_to_sheet", data)
+
+    @patch("app.routes.get_store")
+    @patch("app.routes.place_order", new_callable=AsyncMock)
+    @patch("app.routes.get_ltp", new_callable=AsyncMock, return_value=200)
+    @patch("app.routes.get_fyers")
+    @patch("app.routes.has_short_position",
+           new_callable=AsyncMock,
+           return_value=True)
+    @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
+    @patch("app.routes.os.getenv", return_value="secret")
+    def test_webhook_idempotency_replay(self, mock_env, mock_resolve, mock_short,
+                                        mock_fyers, mock_ltp, mock_order, mock_get_store):
+        """Duplicate request with same idempotency_key returns stored 200 and does not place order again."""
+        mock_order.return_value = {"s": "ok", "message": "Order placed", "id": "order123"}
+        mock_fyers.return_value = MagicMock()
+        store = IdempotencyStore(ttl_seconds=60)
+        mock_get_store.return_value = store
+
+        payload = {
+            "token": "secret",
+            "symbol": "NIFTY",
+            "strikeprice": 24500,
+            "optionType": "CE",
+            "expiry": "WEEKLY",
+            "action": "BUY",
+            "qty": 75,
+            "idempotency_key": "test-key-123",
+        }
+        r1 = self.client.post("/webhook", json=payload)
+        self.assertEqual(r1.status_code, 200)
+        self.assertTrue(r1.get_json()["success"])
+        self.assertEqual(mock_order.call_count, 1)
+
+        r2 = self.client.post("/webhook", json=payload)
+        self.assertEqual(r2.status_code, 200)
+        self.assertTrue(r2.get_json()["success"])
+        self.assertEqual(r2.get_json()["order_response"]["id"], "order123")
+        self.assertEqual(mock_order.call_count, 1, "place_order must not be called again on replay")
 
     def test_webhook_missing_fields(self):
         response = self.client.post("/webhook", json={"symbol": "NIFTY"})

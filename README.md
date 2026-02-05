@@ -70,6 +70,15 @@ To forward logs directly to Google Cloud Logging set:
 USE_CLOUD_LOGGING=true
 ```
 
+To avoid duplicate orders when TradingView retries or the same alert is sent twice, send an **idempotency key** and optionally set a TTL:
+
+```env
+# Cache successful responses by idempotency key for 24h (default). Set 0 to disable.
+IDEMPOTENCY_TTL_SECONDS=86400
+```
+
+Send the key in the webhook JSON as `idempotency_key` or in the header `Idempotency-Key`. The same key within the TTL returns the stored response without placing the order again.
+
 ### Google Service Account
 
 1. Create a service account in Google Cloud and enable the **Cloud Storage** API.
@@ -137,7 +146,8 @@ calculates them from the current LTP when they are omitted or invalid.
   "expiry": "WEEKLY",
   "action": "SELL",
   "qty": 25,
-  "productType": "BO"
+  "productType": "BO",
+  "idempotency_key": "optional-unique-key-per-alert"
 }
 ```
 

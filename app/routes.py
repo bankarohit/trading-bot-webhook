@@ -10,6 +10,7 @@ from app.auth import (
     refresh_access_token,
     generate_access_token,
 )
+from app.idempotency import get_idempotency_key, get_store
 import os
 import logging
 import time
@@ -201,6 +202,20 @@ async def webhook():
                 "data": data
             }), 400
 
+        idem_key = get_idempotency_key(request)
+        if idem_key:
+            store = get_store()
+            existing = store.get(idem_key)
+            if existing:
+                response_dict, status_code = existing
+                logger.info(
+                    "Idempotency replay key=%s -> %s",
+                    idem_key[:32] + "..." if len(idem_key) > 32 else idem_key,
+                    status_code,
+                    extra={"request_id": get_request_id()},
+                )
+                return jsonify(response_dict), status_code
+
         token = data.get("token")
         symbol = data.get("symbol")
         strikeprice = data.get("strikeprice")
@@ -384,14 +399,14 @@ async def webhook():
 
         logger.info("Order placement complete",
                     extra={"request_id": get_request_id()})
-        return (
-            jsonify({
-                "success": True,
-                "message": "order placed",
-                "order_response": order_response,
-            }),
-            200,
-        )
+        success_response = {
+            "success": True,
+            "message": "order placed",
+            "order_response": order_response,
+        }
+        if idem_key:
+            get_store().set(idem_key, success_response, 200)
+        return jsonify(success_response), 200
 
     except Exception as e:
         logger.exception("Unhandled error in webhook: %s",
