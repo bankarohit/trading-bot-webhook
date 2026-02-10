@@ -67,6 +67,7 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["auth_url"], "https://auth.test")
 
+    @patch("app.routes.get_lot_size_for_underlying", return_value=75)
     @patch("app.routes.place_order", new_callable=AsyncMock)
     @patch("app.routes.get_ltp", new_callable=AsyncMock, return_value=200)
     @patch("app.routes.get_fyers")
@@ -76,7 +77,7 @@ class TestRoutes(unittest.TestCase):
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret")
     def test_webhook_success(self, mock_env, mock_resolve, mock_short,
-                             mock_fyers, mock_ltp, mock_order):
+                             mock_fyers, mock_ltp, mock_order, mock_lot_size):
         mock_order.return_value = {
             "s": "ok",
             "message": "Order placed",
@@ -91,7 +92,7 @@ class TestRoutes(unittest.TestCase):
             "optionType": "CE",
             "expiry": "WEEKLY",
             "action": "BUY",
-            "qty": 75
+            "qty": 1
         }
         response = self.client.post("/webhook", json=payload)
         data = response.get_json()
@@ -102,6 +103,7 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(data["order_response"]["id"], "order123")
         self.assertNotIn("logged_to_sheet", data)
 
+    @patch("app.routes.get_lot_size_for_underlying", return_value=75)
     @patch("app.routes.get_store")
     @patch("app.routes.place_order", new_callable=AsyncMock)
     @patch("app.routes.get_ltp", new_callable=AsyncMock, return_value=200)
@@ -112,7 +114,7 @@ class TestRoutes(unittest.TestCase):
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret")
     def test_webhook_idempotency_replay(self, mock_env, mock_resolve, mock_short,
-                                        mock_fyers, mock_ltp, mock_order, mock_get_store):
+                                        mock_fyers, mock_ltp, mock_order, mock_get_store, mock_lot_size):
         """Duplicate request with same idempotency_key returns stored 200 and does not place order again."""
         mock_order.return_value = {"s": "ok", "message": "Order placed", "id": "order123"}
         mock_fyers.return_value = MagicMock()
@@ -126,7 +128,7 @@ class TestRoutes(unittest.TestCase):
             "optionType": "CE",
             "expiry": "WEEKLY",
             "action": "BUY",
-            "qty": 75,
+            "qty": 1,
             "idempotency_key": "test-key-123",
         }
         r1 = self.client.post("/webhook", json=payload)
@@ -144,6 +146,166 @@ class TestRoutes(unittest.TestCase):
         response = self.client.post("/webhook", json={"symbol": "NIFTY"})
         self.assertEqual(response.status_code, 400)
 
+    @patch("app.routes.get_lot_size_for_underlying", return_value=75)
+    @patch("app.routes.os.getenv", return_value="secret")
+    def test_webhook_invalid_action(self, mock_env, mock_lot_size):
+        payload = {
+            "token": "secret",
+            "symbol": "NIFTY",
+            "strikeprice": 24500,
+            "optionType": "CE",
+            "expiry": "WEEKLY",
+            "action": "INVALID",
+            "qty": 1,
+        }
+        response = self.client.post("/webhook", json=payload)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Invalid action", response.get_json().get("error", ""))
+
+    @patch("app.routes.get_lot_size_for_underlying", return_value=75)
+    @patch("app.routes.os.getenv", return_value="secret")
+    def test_webhook_invalid_option_type(self, mock_env, mock_lot_size):
+        payload = {
+            "token": "secret",
+            "symbol": "NIFTY",
+            "strikeprice": 24500,
+            "optionType": "XX",
+            "expiry": "WEEKLY",
+            "action": "BUY",
+            "qty": 1,
+        }
+        response = self.client.post("/webhook", json=payload)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Invalid optionType", response.get_json().get("error", ""))
+
+    @patch("app.routes.get_lot_size_for_underlying", return_value=75)
+    @patch("app.routes.os.getenv", return_value="secret")
+    def test_webhook_invalid_expiry(self, mock_env, mock_lot_size):
+        payload = {
+            "token": "secret",
+            "symbol": "NIFTY",
+            "strikeprice": 24500,
+            "optionType": "CE",
+            "expiry": "DAILY",
+            "action": "BUY",
+            "qty": 1,
+        }
+        response = self.client.post("/webhook", json=payload)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Invalid expiry", response.get_json().get("error", ""))
+
+    @patch("app.routes.get_lot_size_for_underlying", return_value=75)
+    @patch("app.routes.os.getenv", return_value="secret")
+    def test_webhook_invalid_strikeprice_negative(self, mock_env, mock_lot_size):
+        payload = {
+            "token": "secret",
+            "symbol": "NIFTY",
+            "strikeprice": -100,
+            "optionType": "CE",
+            "expiry": "WEEKLY",
+            "action": "BUY",
+            "qty": 1,
+        }
+        response = self.client.post("/webhook", json=payload)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Invalid strikeprice", response.get_json().get("error", ""))
+
+    @patch("app.routes.get_lot_size_for_underlying", return_value=75)
+    @patch("app.routes.os.getenv", return_value="secret")
+    def test_webhook_invalid_strikeprice_non_numeric(self, mock_env, mock_lot_size):
+        payload = {
+            "token": "secret",
+            "symbol": "NIFTY",
+            "strikeprice": "abc",
+            "optionType": "CE",
+            "expiry": "WEEKLY",
+            "action": "BUY",
+            "qty": 1,
+        }
+        response = self.client.post("/webhook", json=payload)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Invalid strikeprice", response.get_json().get("error", ""))
+
+    @patch("app.routes.get_lot_size_for_underlying", return_value=75)
+    @patch("app.routes.os.getenv", return_value="secret")
+    def test_webhook_invalid_strikeprice_zero(self, mock_env, mock_lot_size):
+        payload = {
+            "token": "secret",
+            "symbol": "NIFTY",
+            "strikeprice": 0,
+            "optionType": "CE",
+            "expiry": "WEEKLY",
+            "action": "BUY",
+            "qty": 1,
+        }
+        response = self.client.post("/webhook", json=payload)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Missing required fields", response.get_json().get("error", ""))
+
+    @patch("app.routes.get_lot_size_for_underlying", return_value=75)
+    @patch("app.routes.os.getenv", side_effect=lambda k, d=None: "100" if k == "WEBHOOK_MAX_QTY" else "secret")
+    def test_webhook_qty_exceeds_max(self, mock_env, mock_lot_size):
+        payload = {
+            "token": "secret",
+            "symbol": "NIFTY",
+            "strikeprice": 24500,
+            "optionType": "CE",
+            "expiry": "WEEKLY",
+            "action": "BUY",
+            "qty": 9999,
+        }
+        response = self.client.post("/webhook", json=payload)
+        self.assertEqual(response.status_code, 400)
+        data = response.get_json()
+        self.assertIn("qty", data.get("error", "").lower())
+
+    @patch("app.routes.get_lot_size_for_underlying", return_value=75)
+    @patch("app.routes.place_order", new_callable=AsyncMock)
+    @patch("app.routes.get_ltp", new_callable=AsyncMock, return_value=200)
+    @patch("app.routes.get_fyers")
+    @patch("app.routes.has_short_position", new_callable=AsyncMock, return_value=True)
+    @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
+    @patch("app.routes.os.getenv", return_value="secret")
+    def test_webhook_valid_qty_under_max(self, mock_env, mock_resolve, mock_short, mock_fyers, mock_ltp, mock_order, mock_lot_size):
+        mock_order.return_value = {"s": "ok", "id": "ord1"}
+        mock_fyers.return_value = MagicMock()
+        payload = {
+            "token": "secret",
+            "symbol": "NIFTY",
+            "strikeprice": 24500,
+            "optionType": "CE",
+            "expiry": "WEEKLY",
+            "action": "BUY",
+            "qty": 75,
+        }
+        response = self.client.post("/webhook", json=payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()["success"])
+        mock_order.assert_called_once()
+
+    @patch("app.routes.get_lot_size_for_underlying", return_value=1)
+    @patch("app.routes.place_order", new_callable=AsyncMock)
+    @patch("app.routes.get_ltp", new_callable=AsyncMock, return_value=200)
+    @patch("app.routes.get_fyers")
+    @patch("app.routes.has_short_position", new_callable=AsyncMock, return_value=True)
+    @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
+    @patch("app.routes._validate_order_params", return_value=(75, 170.0, 250.0, "BO"))
+    @patch("app.routes.os.getenv", side_effect=lambda k, d=None: "50" if k == "WEBHOOK_MAX_QTY" else "secret")
+    def test_webhook_final_qty_exceeds_max(self, mock_env, mock_validate, mock_resolve, mock_short, mock_fyers, mock_ltp, mock_order, mock_lot_size):
+        mock_fyers.return_value = MagicMock()
+        payload = {
+            "token": "secret",
+            "symbol": "NIFTY",
+            "strikeprice": 24500,
+            "optionType": "CE",
+            "expiry": "WEEKLY",
+            "action": "BUY",
+        }
+        response = self.client.post("/webhook", json=payload)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Quantity exceeds maximum", response.get_json().get("error", ""))
+        mock_order.assert_not_called()
+
     def test_webhook_invalid_token(self):
         payload = {
             "token": "wrong",
@@ -152,14 +314,15 @@ class TestRoutes(unittest.TestCase):
             "optionType": "CE",
             "expiry": "WEEKLY",
             "action": "BUY",
-            "qty": 75
+            "qty": 1
         }
         response = self.client.post("/webhook", json=payload)
         self.assertEqual(response.status_code, 401)
 
+    @patch("app.routes.get_lot_size_for_underlying", return_value=75)
     @patch("app.routes.get_symbol_from_csv", return_value=None)
     @patch("app.routes.os.getenv", return_value="secret")
-    def test_webhook_symbol_resolution_fail(self, mock_env, mock_resolve):
+    def test_webhook_symbol_resolution_fail(self, mock_env, mock_resolve, mock_lot_size):
         payload = {
             "token": "secret",
             "symbol": "NIFTY",
@@ -167,11 +330,12 @@ class TestRoutes(unittest.TestCase):
             "optionType": "CE",
             "expiry": "WEEKLY",
             "action": "BUY",
-            "qty": 75
+            "qty": 1
         }
         response = self.client.post("/webhook", json=payload)
         self.assertEqual(response.status_code, 403)
 
+    @patch("app.routes.get_lot_size_for_underlying", return_value=75)
     @patch("app.routes.place_order", new_callable=AsyncMock)
     @patch("app.routes.get_ltp", new_callable=AsyncMock)
     @patch("app.routes.get_fyers")
@@ -182,7 +346,7 @@ class TestRoutes(unittest.TestCase):
     @patch("app.routes.os.getenv", return_value="secret")
     def test_webhook_buy_without_short(self, mock_env, mock_resolve,
                                        mock_short, mock_fyers, mock_ltp,
-                                       mock_order):
+                                       mock_order, mock_lot_size):
         mock_fyers.return_value = MagicMock()
         payload = {
             "token": "secret",
@@ -191,7 +355,7 @@ class TestRoutes(unittest.TestCase):
             "optionType": "CE",
             "expiry": "WEEKLY",
             "action": "BUY",
-            "qty": 75
+            "qty": 1
         }
 
         response = self.client.post("/webhook", json=payload)
@@ -199,13 +363,14 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         mock_order.assert_not_called()
 
+    @patch("app.routes.get_lot_size_for_underlying", return_value=75)
     @patch("app.routes.get_fyers")
     @patch("app.routes.get_ltp", new_callable=AsyncMock, return_value=None)
     @patch("app.routes.place_order", new_callable=AsyncMock)
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret")
     def test_webhook_ltp_none_uses_defaults(self, mock_env, mock_resolve,
-                                            mock_order, mock_ltp, mock_fyers):
+                                            mock_order, mock_ltp, mock_fyers, mock_lot_size):
         mock_order.return_value = {
             "s": "ok",
             "message": "Order placed",
@@ -220,7 +385,7 @@ class TestRoutes(unittest.TestCase):
             "optionType": "CE",
             "expiry": "WEEKLY",
             "action": "SELL",
-            "qty": 75
+            "qty": 1
         }
         response = self.client.post("/webhook", json=payload)
         data = response.get_json()
@@ -229,6 +394,7 @@ class TestRoutes(unittest.TestCase):
         self.assertFalse(data["success"])
         mock_order.assert_not_called()
 
+    @patch("app.routes.get_lot_size_for_underlying", return_value=75)
     @patch("app.routes.get_fyers")
     @patch(
         "app.routes.get_ltp",
@@ -239,7 +405,7 @@ class TestRoutes(unittest.TestCase):
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret")
     def test_webhook_ltp_error_dict_defaults(self, mock_env, mock_resolve,
-                                             mock_order, mock_ltp, mock_fyers):
+                                             mock_order, mock_ltp, mock_fyers, mock_lot_size):
         mock_order.return_value = {
             "s": "ok",
             "message": "Order placed",
@@ -254,7 +420,7 @@ class TestRoutes(unittest.TestCase):
             "optionType": "CE",
             "expiry": "WEEKLY",
             "action": "SELL",
-            "qty": 75,
+            "qty": 1,
         }
         response = self.client.post("/webhook", json=payload)
         data = response.get_json()
@@ -283,6 +449,7 @@ class TestRoutes(unittest.TestCase):
         response = self.client.post("/webhook", json={})
         self.assertEqual(response.status_code, 400)
 
+    @patch("app.routes.get_lot_size_for_underlying", return_value=75)
     @patch("app.routes._validate_order_params", side_effect=Exception("bad"))
     @patch("app.routes.place_order", new_callable=AsyncMock)
     @patch("app.routes.get_ltp", new_callable=AsyncMock, return_value=200)
@@ -294,7 +461,7 @@ class TestRoutes(unittest.TestCase):
     @patch("app.routes.os.getenv", return_value="secret")
     def test_webhook_unhandled_exception(self, mock_env, mock_resolve,
                                          mock_short, mock_fyers, mock_ltp,
-                                         mock_order, mock_validate):
+                                         mock_order, mock_validate, mock_lot_size):
         mock_fyers.return_value = MagicMock()
         payload = {
             "token": "secret",
@@ -303,7 +470,7 @@ class TestRoutes(unittest.TestCase):
             "optionType": "CE",
             "expiry": "WEEKLY",
             "action": "BUY",
-            "qty": 75
+            "qty": 1
         }
         response = self.client.post("/webhook", json=payload)
         self.assertEqual(response.status_code, 500)
@@ -352,13 +519,14 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(response.status_code, 500)
         self.assertFalse(response.get_json()["success"])
 
+    @patch("app.routes.get_lot_size_for_underlying", return_value=75)
     @patch("app.routes.get_fyers", return_value=None)
     @patch("app.routes.get_ltp", new_callable=AsyncMock, return_value=200)
     @patch("app.routes.place_order", new_callable=AsyncMock)
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret")
     def test_webhook_fyers_init_fail(self, mock_env, mock_resolve, mock_order,
-                                     mock_ltp, mock_fyers):
+                                     mock_ltp, mock_fyers, mock_lot_size):
         payload = {
             "token": "secret",
             "symbol": "NIFTY",
@@ -366,11 +534,12 @@ class TestRoutes(unittest.TestCase):
             "optionType": "CE",
             "expiry": "WEEKLY",
             "action": "BUY",
-            "qty": 75
+            "qty": 1
         }
         response = self.client.post("/webhook", json=payload)
         self.assertEqual(response.status_code, 500)
 
+    @patch("app.routes.get_lot_size_for_underlying", return_value=75)
     @patch("app.routes.place_order",
            new_callable=AsyncMock,
            return_value={
@@ -385,7 +554,7 @@ class TestRoutes(unittest.TestCase):
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret")
     def test_webhook_order_api_error(self, mock_env, mock_resolve, mock_short,
-                                     mock_fyers, mock_ltp, mock_order):
+                                     mock_fyers, mock_ltp, mock_order, mock_lot_size):
         mock_fyers.return_value = MagicMock()
         payload = {
             "token": "secret",
@@ -394,11 +563,12 @@ class TestRoutes(unittest.TestCase):
             "optionType": "CE",
             "expiry": "WEEKLY",
             "action": "BUY",
-            "qty": 75
+            "qty": 1
         }
         response = self.client.post("/webhook", json=payload)
         self.assertEqual(response.status_code, 500)
 
+    @patch("app.routes.get_lot_size_for_underlying", return_value=75)
     @patch("app.routes.place_order",
            new_callable=AsyncMock,
            side_effect=Exception("fail"))
@@ -410,7 +580,7 @@ class TestRoutes(unittest.TestCase):
     @patch("app.routes.get_symbol_from_csv", return_value="NSE:NIFTY245001CE")
     @patch("app.routes.os.getenv", return_value="secret")
     def test_webhook_order_exception(self, mock_env, mock_resolve, mock_short,
-                                     mock_fyers, mock_ltp, mock_order):
+                                     mock_fyers, mock_ltp, mock_order, mock_lot_size):
         mock_fyers.return_value = MagicMock()
         payload = {
             "token": "secret",
@@ -419,11 +589,12 @@ class TestRoutes(unittest.TestCase):
             "optionType": "CE",
             "expiry": "WEEKLY",
             "action": "BUY",
-            "qty": 75
+            "qty": 1
         }
         response = self.client.post("/webhook", json=payload)
         self.assertEqual(response.status_code, 500)
 
+    @patch("app.routes.get_lot_size_for_underlying", return_value=75)
     @patch("app.routes.place_order",
            new_callable=AsyncMock,
            return_value={"s": "ok"})
@@ -438,7 +609,7 @@ class TestRoutes(unittest.TestCase):
     @patch("app.routes.os.getenv", return_value="secret")
     def test_webhook_get_ltp_exception(self, mock_env, mock_resolve,
                                        mock_short, mock_fyers, mock_ltp,
-                                       mock_order):
+                                       mock_order, mock_lot_size):
         mock_fyers.return_value = MagicMock()
         payload = {
             "token": "secret",
@@ -447,7 +618,7 @@ class TestRoutes(unittest.TestCase):
             "optionType": "CE",
             "expiry": "WEEKLY",
             "action": "BUY",
-            "qty": 75
+            "qty": 1
         }
         response = self.client.post("/webhook", json=payload)
         self.assertEqual(response.status_code, 400)

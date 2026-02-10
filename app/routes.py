@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from app.logging_config import get_request_id
 from app.fyers_api import get_ltp, place_order, _validate_order_params, has_short_position
-from app.utils import get_symbol_from_csv
+from app.utils import get_lot_size_for_underlying, get_symbol_from_csv
 from app.notifications import send_notification
 from app.auth import (
     get_fyers,
@@ -227,7 +227,8 @@ async def webhook():
         tp = data.get("tp")
         productType = data.get("productType", "BO")
 
-        if not symbol or not action or not strikeprice or not optionType or not expiry or not token:
+        if (not symbol or not action or not strikeprice
+                or not optionType or not expiry or not token):
             logger.error(
                 "Missing fields - symbol: %s, action: %s, strike: %s, option_type: %s, expiry: %s",
                 symbol,
@@ -249,6 +250,59 @@ async def webhook():
                 extra={"request_id": get_request_id()},
             )
             return jsonify({"success": False, "error": "Unauthorized"}), 401
+
+        # Fyers API qty is in contracts (exact number). WEBHOOK_MAX_QTY = max lots (default 1).
+        try:
+            max_lots = int(os.getenv("WEBHOOK_MAX_QTY", "1"))
+        except (TypeError, ValueError):
+            max_lots = 1
+        max_lots = max(1, min(max_lots, 10))
+        lot_size = get_lot_size_for_underlying(symbol)
+        max_contracts = max_lots * lot_size
+
+        action_upper = str(action).strip().upper()
+        if action_upper not in ("BUY", "SELL"):
+            return jsonify({
+                "success": False,
+                "error": "Invalid action"
+            }), 400
+        option_type_upper = str(optionType).strip().upper()
+        if option_type_upper not in ("CE", "PE"):
+            return jsonify({
+                "success": False,
+                "error": "Invalid optionType"
+            }), 400
+        expiry_upper = str(expiry).strip().upper()
+        if expiry_upper not in ("WEEKLY", "MONTHLY"):
+            return jsonify({
+                "success": False,
+                "error": "Invalid expiry"
+            }), 400
+        try:
+            strike_f = float(strikeprice)
+            if strike_f <= 0 or strike_f > 100000:
+                return jsonify({
+                    "success": False,
+                    "error": "Invalid strikeprice"
+                }), 400
+        except (TypeError, ValueError):
+            return jsonify({
+                "success": False,
+                "error": "Invalid strikeprice"
+            }), 400
+        if qty is not None and qty != "":
+            try:
+                qty_int = int(qty)
+                if qty_int < 1 or qty_int > max_contracts:
+                    return jsonify({
+                        "success": False,
+                        "error": "Invalid qty or qty exceeds maximum"
+                    }), 400
+            except (TypeError, ValueError):
+                return jsonify({
+                    "success": False,
+                    "error": "Invalid qty or qty exceeds maximum"
+                }), 400
 
         start = time.time()
         logger.info(
@@ -344,6 +398,11 @@ async def webhook():
 
         qty, sl, tp, productType = _validate_order_params(
             fyers_symbol, qty, sl, tp, productType)
+        if qty > max_contracts:
+            return jsonify({
+                "success": False,
+                "error": "Quantity exceeds maximum"
+            }), 400
         try:
             fyers = get_fyers()
             logger.info(

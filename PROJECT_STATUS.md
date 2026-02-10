@@ -1,15 +1,17 @@
 # Trading Bot Webhook – Project Status
 
 **Last Updated:** January 26, 2026  
-**Project Type:** Flask webhook service: TradingView alerts → Fyers API (options trading)
+**Project Type:** Flask webhook: TradingView alerts → Fyers API (options trading).
+
+**Deployment context:** Personal use. You run the app on Cloud Run and give the webhook URL only to TradingView alerts. Only your TradingView strategies send JSON to the webhook—no public exposure.
 
 ---
 
 ## Executive Summary
 
-Flask service that receives TradingView alerts and places option orders on Fyers. It validates payloads, resolves NSE F&amp;O symbols, computes direction-aware SL/TP from LTP, and executes orders. Token storage is in GCS with auto-refresh.
+Flask service that receives TradingView alerts and places option orders on Fyers. It validates the secret token, resolves NSE F&amp;O symbols, computes direction-aware SL/TP from LTP, and executes orders. Tokens are stored in GCS with auto-refresh. Idempotency avoids duplicate orders when TradingView retries.
 
-**Status:** **Functional; NOT production ready.** See `PRODUCTION_READINESS.md` for gaps (rate limiting, input validation, audit trail, etc.).
+**Status:** **Functional and suitable for personal Cloud Run use.** For extra robustness without over-engineering, see the short “Worth doing” list in `PRODUCTION_READINESS.md` (input validation + max qty, request size limit, timeouts, error sanitization).
 
 ---
 
@@ -22,39 +24,26 @@ Flask service that receives TradingView alerts and places option orders on Fyers
 
 ## Data Flow (Main Webhook)
 
-1. `POST /webhook` receives JSON (token, symbol, strikeprice, optionType, expiry, action, qty, …).
-2. Validate secret token; reject if missing/invalid.
-3. Resolve Fyers symbol from NSE_FO CSV (underlying + strike + optionType + expiry).
-4. Get Fyers client (token manager; auto-refresh on expiry/401).
-5. **If action = BUY:** ensure a short position exists (cover-only; option seller flow). Else 400.
-6. Fetch LTP for the resolved symbol.
-7. **SL/TP:** Always computed from LTP (user values ignored). Direction-aware price levels:
-   - **BUY:** `sl = ltp * (1 - 0.15)`, `tp = ltp * (1 + 0.25)` (rounded to 2 decimals).
-   - **SELL:** `sl = ltp * (1 + 0.15)`, `tp = ltp * (1 - 0.25)`.
-8. If LTP unavailable or invalid → **400** (no order; no default SL/TP).
-9. `_validate_order_params()`: normalizes qty (default from lot size), parses sl/tp (no 10/20 defaults; invalid → None). productType validated; invalid → "BO".
-10. For BO/CO, if sl or tp is None after validation → `place_order` returns error; else place market order with retries.
-11. Return success/error JSON.
+1. `POST /webhook` receives JSON (token, symbol, strikeprice, optionType, expiry, action, qty, optional idempotency_key).
+2. If `idempotency_key` present and cached response exists → return cached 200 (no Fyers call).
+3. Validate secret token; reject if missing/invalid.
+4. Resolve Fyers symbol from NSE_FO CSV (underlying + strike + optionType + expiry).
+5. Get Fyers client (token manager; auto-refresh on expiry/401).
+6. **If action = BUY:** ensure a short position exists (cover-only). Else 400.
+7. Fetch LTP; compute direction-aware SL/TP from LTP; if LTP unavailable → 400.
+8. Validate order params (qty, sl, tp, productType); BO/CO require valid sl/tp.
+9. Place market order with retries; on success, cache response by idempotency key if provided.
+10. Return success/error JSON.
 
 ---
 
 ## Current Features
 
-### Webhook & order logic
-- **POST /webhook:** Validates token and required fields; symbol resolution; LTP fetch; **direction-aware SL/TP from LTP only**; fail-fast 400 if LTP unavailable; BUY only when short exists (cover-only).
-- **Order params:** qty from payload or symbol lot size; sl/tp only parsed/validated (no default 10/20); BO/CO require valid sl/tp or order is rejected.
-- **Fyers:** get_ltp, has_short_position, place_order with 3-attempt exponential backoff; 401 → token refresh and retry.
-
-### Auth & token
-- Token manager: GCS + local cache; get/refresh/generate token; thread-safe singleton.
-- **GET /auth-url**, **POST /generate-token**, **POST /refresh-token**.
-
-### Health & ops
-- **GET /readyz:** Token present + Fyers profile ping.
-- **Logging:** Production-oriented: request_id, levels from env (LOG_LEVEL, optional CLOUD_LOG_LEVEL, FILE_LOG_LEVEL), optional Cloud + file handlers; errors in handler setup don’t crash the app; optional `LOG_FILE` with rotation (10MB, 5 backups, utf-8).
-
-### Deployment
-- Dockerfile, docker-compose, cloudbuild.yaml for Cloud Run; healthcheck uses `/readyz`.
+- **Webhook:** Token validation, symbol resolution, LTP, direction-aware SL/TP, idempotency, cover-only BUY check, retries, notifications on failure.
+- **Auth:** Token manager (GCS + local), refresh, generate; GET /auth-url, POST /generate-token, POST /refresh-token.
+- **Health:** GET /readyz (token + Fyers ping).
+- **Logging:** Request ID, optional Cloud + file handlers, safe setup, configurable levels.
+- **Deployment:** Dockerfile, docker-compose, cloudbuild.yaml for Cloud Run.
 
 ---
 
@@ -63,20 +52,20 @@ Flask service that receives TradingView alerts and places option orders on Fyers
 ```
 trading-bot-webhook-1/
 ├── app/
-│   ├── __init__.py          # App factory, request hooks
-│   ├── auth.py              # Token/auth wrappers
-│   ├── config.py            # Env loading
-│   ├── fyers_api.py         # Fyers API + _validate_order_params, place_order
-│   ├── logging_config.py    # Production-style logging
-│   ├── notifications.py    # Pub/Sub / webhook
-│   ├── routes.py            # Webhook + auth/health routes
-│   ├── token_manager.py     # Token storage & refresh
-│   └── utils.py             # Symbol master, get_symbol_from_csv
-├── tests/                   # 8 test modules, 107 tests
+│   ├── __init__.py
+│   ├── auth.py
+│   ├── config.py
+│   ├── fyers_api.py
+│   ├── idempotency.py    # Idempotency key handling and store
+│   ├── logging_config.py
+│   ├── notifications.py
+│   ├── routes.py
+│   ├── token_manager.py
+│   └── utils.py
+├── tests/                 # 116 tests
 ├── docs/design.md
 ├── main.py
-├── FUNCTIONALITY.md         # Detailed flow & endpoints
-├── PRODUCTION_READINESS.md  # What’s missing for production
+├── PRODUCTION_READINESS.md  # Context-aware; short “worth doing” list
 └── README.md
 ```
 
@@ -89,49 +78,28 @@ trading-bot-webhook-1/
 | POST   | /webhook         | TradingView alert → order  |
 | GET    | /readyz          | Health check               |
 | GET    | /auth-url        | Fyers login URL            |
-| POST   | /generate-token | Auth code → token          |
+| POST   | /generate-token  | Auth code → token          |
 | POST   | /refresh-token   | Refresh access token       |
 
 ---
 
 ## Configuration (summary)
 
-**Required:** `FYERS_APP_ID`, `FYERS_SECRET_ID`, `FYERS_REDIRECT_URI`, `FYERS_AUTH_CODE`, `FYERS_PIN`, `WEBHOOK_SECRET_TOKEN`, `GCS_BUCKET_NAME`, `GCS_TOKENS_FILE`, `GOOGLE_APPLICATION_CREDENTIALS`.
+**Required:** FYERS_APP_ID, FYERS_SECRET_ID, FYERS_REDIRECT_URI, FYERS_AUTH_CODE, FYERS_PIN, WEBHOOK_SECRET_TOKEN, GCS_BUCKET_NAME, GCS_TOKENS_FILE, GOOGLE_APPLICATION_CREDENTIALS.
 
-**Optional logging:** `LOG_LEVEL`, `LOG_FILE`, `USE_CLOUD_LOGGING`, `CLOUD_LOG_LEVEL`, `FILE_LOG_LEVEL`.
-
-**Optional notifications:** `NOTIFICATION_TOPIC`, `NOTIFICATION_URL`.
+**Optional:** LOG_LEVEL, LOG_FILE, USE_CLOUD_LOGGING, CLOUD_LOG_LEVEL, FILE_LOG_LEVEL; NOTIFICATION_TOPIC, NOTIFICATION_URL; IDEMPOTENCY_TTL_SECONDS.
 
 ---
 
-## Testing
+## What to Do Next (optional robustness)
 
-- **107 tests** across 8 modules; all passing.
-- Run: `export PYTHONPATH=. && pytest -v` (or `pytest -q`).
-- conftest.py provides GCS/logging stubs; no live Fyers needed.
-
----
-
-## Recent Changes (functionality & robustness)
-
-1. **SL/TP:** Always derived from LTP; direction-aware **price levels** (BUY: SL below LTP, TP above; SELL: opposite). User-provided sl/tp are intentionally overridden.
-2. **No SL/TP defaulting:** `_validate_order_params()` no longer forces 10/20; invalid/missing sl/tp → None; BO/CO require valid sl/tp or order fails.
-3. **Fail-fast:** If LTP is unavailable or invalid, webhook returns **400** instead of placing an order with default SL/TP.
-4. **Validation:** sl/tp parsed via safe helper; non-numeric/invalid values become None (no exception thrown).
-5. **Logging:** Production-style config: error handling around Cloud/file handlers, optional per-handler levels, utf-8 file logging; app continues if a handler fails to attach.
-6. **BUY gating:** Kept as-is: BUY only when a short position exists (cover-only; option seller use case).
-
----
-
-## What’s Not Done (production)
-
-See **PRODUCTION_READINESS.md** for full list. Highlights: rate limiting, strict input validation and max qty, idempotency/duplicate protection, request timeouts, audit trail/DB, circuit breaker, symbol master refresh, and broader observability.
+See **PRODUCTION_READINESS.md**. Short list: input validation + max qty, `MAX_CONTENT_LENGTH`, timeouts on outbound calls, sanitize error responses. No rate limiting, IP whitelist, CORS, DB, or extra observability required for your personal TradingView-only setup.
 
 ---
 
 ## Quick Reference
 
 - **Flow details:** `FUNCTIONALITY.md`
-- **Production gaps:** `PRODUCTION_READINESS.md`
+- **Robustness checklist (minimal):** `PRODUCTION_READINESS.md`
 - **Run locally:** `PYTHONPATH=. python main.py` or `docker compose up`
 - **Deploy:** `gcloud builds submit --config cloudbuild.yaml`

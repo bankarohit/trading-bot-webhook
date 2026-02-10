@@ -106,7 +106,40 @@ def get_symbol_from_csv(symbol, strike_price, option_type, expiry_type):
             f"Exception in get_symbol_from_csv for symbol={symbol}, strike_price={strike_price}, option_type={option_type}, expiry_type={expiry_type}: {str(e)}"
         )
         return None
-    
+
+
+def get_lot_size_for_underlying(underlying_symbol):
+    """Return the lot size (contracts per lot) for an underlying from the symbol master.
+
+    The Fyers API expects order quantity in contracts (exact number), not lots.
+    One lot equals this many contracts (e.g. 75 for NIFTY, 30 for BANKNIFTY).
+
+    Parameters:
+        underlying_symbol (str): Underlying symbol, e.g. ``NIFTY`` or ``BANKNIFTY``.
+
+    Returns:
+        int: Lot size (contracts per lot) if found; otherwise ``1``.
+    """
+    global _symbol_cache
+    if _symbol_cache is None:
+        load_symbol_master()
+    if _symbol_cache.empty:
+        return 1
+    try:
+        match = _symbol_cache[_symbol_cache["underlying_symbol"].str.upper() == underlying_symbol.upper()]
+        if len(match) == 0:
+            logger.warning(
+                "No lot size found for underlying %s in symbol master, defaulting to 1",
+                underlying_symbol,
+            )
+            return 1
+        # Column name from symbol_master_columns (CSV has no header; we assign names in load_symbol_master)
+        return int(float(match.iloc[0]["lot_size"]))
+    except Exception as e:
+        logger.warning("Invalid lot size for underlying %s: %s", underlying_symbol, e)
+        return 1
+
+
 def _get_storage_client():
     """Helper to lazily obtain the Google Cloud Storage client."""
     try:

@@ -79,6 +79,15 @@ IDEMPOTENCY_TTL_SECONDS=86400
 
 Send the key in the webhook JSON as `idempotency_key` or in the header `Idempotency-Key`. The same key within the TTL returns the stored response without placing the order again.
 
+The Fyers API expects order **quantity in contracts** (exact number), not lots. One lot = `lot_size` contracts (e.g. 75 for NIFTY, 30 for BANKNIFTY). Payload `qty` is in contracts; if omitted, the app uses one lot (symbol’s `lot_size`).
+
+To cap the maximum **lots** per order (default 1 lot). Max allowed contracts = `WEBHOOK_MAX_QTY × lot_size` for that symbol:
+
+```env
+# Maximum allowed lots per order (default 1). Reject if qty in contracts exceeds this × lot_size.
+WEBHOOK_MAX_QTY=1
+```
+
 ### Google Service Account
 
 1. Create a service account in Google Cloud and enable the **Cloud Storage** API.

@@ -269,8 +269,8 @@ async def place_order(symbol, qty, action, sl, tp, productType,
     symbol : str
         Instrument ticker to trade.
     qty : int or ``None``
-        Quantity for the order. ``None`` triggers lookup of the default lot
-        size.
+        Quantity in contracts (Fyers API expects exact contract count, not lots).
+        ``None`` triggers lookup of the default lot size (1 lot in contracts).
     action : str
         Either ``"BUY"`` or ``"SELL"`` (case-insensitive).
     sl : float or ``None``

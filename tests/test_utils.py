@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.utils import (
-    load_symbol_master, get_symbol_from_csv,
+    load_symbol_master, get_symbol_from_csv, get_lot_size_for_underlying,
     symbol_master_columns
 )
 import app.utils
@@ -128,4 +128,25 @@ def test_get_symbol_from_csv_exception(monkeypatch, sample_df):
     app.utils.logger.exception.assert_called_with(
         "Exception in get_symbol_from_csv for symbol=NIFTY, strike_price=19000, option_type=CE, expiry_type=WEEKLY: Processing error"
     )
+
+
+def test_get_lot_size_for_underlying_nifty(sample_df):
+    app.utils._symbol_cache = sample_df
+    assert get_lot_size_for_underlying("NIFTY") == 50
+    assert get_lot_size_for_underlying("nifty") == 50
+
+
+def test_get_lot_size_for_underlying_banknifty(sample_df):
+    app.utils._symbol_cache = sample_df
+    assert get_lot_size_for_underlying("BANKNIFTY") == 25
+
+
+def test_get_lot_size_for_underlying_unknown(setup_and_teardown):
+    app.utils._symbol_cache = pd.DataFrame(columns=symbol_master_columns)
+    assert get_lot_size_for_underlying("UNKNOWN") == 1
+
+
+def test_get_lot_size_for_underlying_empty_cache(setup_and_teardown):
+    app.utils._symbol_cache = pd.DataFrame(columns=symbol_master_columns)
+    assert get_lot_size_for_underlying("NIFTY") == 1
 
