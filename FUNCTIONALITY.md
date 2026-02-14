@@ -126,9 +126,9 @@ TradingView Alert (JSON)
 ## Business Logic
 
 ### SL/TP Calculation
-- If `sl` or `tp` not provided or invalid:
-  - `sl = round(ltp * 0.15)` (15% of LTP)
-  - `tp = round(ltp * 0.25)` (25% of LTP)
+- If `sl` or `tp` not provided or invalid, the service uses direction-aware levels from LTP (15% / 25% bands):
+  - **BUY:** `sl = round(ltp * (1 - 0.15), 2)` (15% below LTP), `tp = round(ltp * (1 + 0.25), 2)` (25% above LTP).
+  - **SELL:** `sl = round(ltp * (1 + 0.15), 2)` (15% above LTP), `tp = round(ltp * (1 - 0.25), 2)` (25% below LTP).
 
 ### Position Validation
 - **BUY orders:** Must have existing short position

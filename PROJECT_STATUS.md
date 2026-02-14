@@ -11,7 +11,7 @@
 
 Flask service that receives TradingView alerts and places option orders on Fyers. It validates the secret token, resolves NSE F&amp;O symbols, computes direction-aware SL/TP from LTP, and executes orders. Tokens are stored in GCS with auto-refresh. Idempotency avoids duplicate orders when TradingView retries.
 
-**Status:** **Functional and suitable for personal Cloud Run use.** For extra robustness without over-engineering, see the short “Worth doing” list in `PRODUCTION_READINESS.md` (input validation + max qty, request size limit, timeouts, error sanitization).
+**Status:** **Functional and suitable for personal Cloud Run use.** For extra robustness without over-engineering, see the short “Worth doing” list in `PRODUCTION_READINESS.md` (request size limit, timeouts, error sanitization). Input validation + max qty is implemented.
 
 ---
 
@@ -62,7 +62,7 @@ trading-bot-webhook-1/
 │   ├── routes.py
 │   ├── token_manager.py
 │   └── utils.py
-├── tests/                 # 116 tests
+├── tests/                 # 129 tests
 ├── docs/design.md
 ├── main.py
 ├── PRODUCTION_READINESS.md  # Context-aware; short “worth doing” list
@@ -93,7 +93,7 @@ trading-bot-webhook-1/
 
 ## What to Do Next (optional robustness)
 
-See **PRODUCTION_READINESS.md**. Short list: input validation + max qty, `MAX_CONTENT_LENGTH`, timeouts on outbound calls, sanitize error responses. No rate limiting, IP whitelist, CORS, DB, or extra observability required for your personal TradingView-only setup.
+See **PRODUCTION_READINESS.md**. Short list: `MAX_CONTENT_LENGTH`, timeouts on outbound calls, sanitize error responses. (Input validation + max qty is done.) No rate limiting, IP whitelist, CORS, DB, or extra observability required for your personal TradingView-only setup.
 
 ---
 

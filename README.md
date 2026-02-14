@@ -33,9 +33,14 @@ TradingView Strategy --(alert JSON)--> Flask Webhook
 
 - `app/`
   - `auth.py` – wrappers around the token manager.
+  - `config.py` – environment variable loading and validation.
+  - `fyers_api.py` – Fyers API wrappers (LTP, positions, place order, retries).
+  - `idempotency.py` – idempotency key handling and in-memory store.
+  - `logging_config.py` – logging setup (request_id, Cloud/file handlers).
+  - `notifications.py` – Pub/Sub and webhook notifications on failure.
   - `routes.py` – Flask blueprint with webhook and utility endpoints.
   - `token_manager.py` – handles token storage and refresh using Google Cloud Storage.
-  - `utils.py` – symbol master loader utilities.
+  - `utils.py` – symbol master loader and lot-size utilities.
 - `main.py` – entry point that starts the Flask app.
 - `tests/` – unit tests for all modules.
 
@@ -133,23 +138,26 @@ You can deploy the container to Google Cloud Run or any other container platform
 ```bash
 gcloud builds submit --config cloudbuild.yaml
 ```
-The container runs using **Gunicorn** with the command:
+The container runs using **Gunicorn** with **Uvicorn workers** so the server is **non-blocking**: one worker can handle many concurrent requests while they wait on Fyers/HTTP. A long-running request does not block others.
 
 ```bash
-gunicorn -b 0.0.0.0:8080 main:app
+gunicorn main:asgi_app -w 1 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8080
 ```
+
+See [docs/GUNICORN_VS_UVICORN.md](docs/GUNICORN_VS_UVICORN.md) and [docs/SERVERS_OVERVIEW.md](docs/SERVERS_OVERVIEW.md) for details.
 
 
 ## Sample Webhook Payload
 
 The `expiry` field should be either `"WEEKLY"` or `"MONTHLY"`.
+The `symbol` must be the **underlying** (e.g. `NIFTY`, `BANKNIFTY`), not the full Fyers ticker.
 Stop loss (`sl`) and take profit (`tp`) are optional—the service
 calculates them from the current LTP when they are omitted or invalid.
 
 ```json
 {
   "token": "<WEBHOOK_SECRET>",
-  "symbol": "NSE:BANKNIFTY",
+  "symbol": "BANKNIFTY",
   "strikeprice": 48400,
   "optionType": "PE",
   "expiry": "WEEKLY",

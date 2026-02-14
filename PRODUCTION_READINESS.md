@@ -15,7 +15,8 @@
 - **Logging:** Production-style (safe handler setup, optional levels, file rotation).
 - **Auth:** Secret token; token refresh; GCS token storage.
 - **Retries:** 3 attempts with backoff for Fyers calls; 401 → token refresh and retry.
-- **Tests:** 116 unit tests passing.
+- **Tests:** 129 unit tests passing.
+- **Input validation + max qty:** Action, optionType, expiry, strikeprice validated; `WEBHOOK_MAX_QTY` (max lots) enforced; qty in contracts capped per symbol.
 
 ---
 
@@ -23,22 +24,17 @@
 
 These improve safety and robustness without adding much code or complexity.
 
-### 1. Input validation + max quantity
-- **Why:** Prevents bad or accidentally huge orders from a typo in TradingView or malformed payload.
-- **What:** Validate `action` (BUY/SELL), `optionType` (CE/PE), `expiry` (WEEKLY/MONTHLY), `strikeprice` (numeric, sane range). Enforce a **max qty** (e.g. env `WEBHOOK_MAX_QTY`, reject if qty &gt; max or &lt; 1).
-- **Effort:** Small; one validation layer in routes (or a tiny validator module).
-
-### 2. Request body size limit
+### 1. Request body size limit
 - **Why:** Avoid accidental or malformed huge payloads.
 - **What:** Set `app.config["MAX_CONTENT_LENGTH"] = 64 * 1024` (64 KB) in the app factory.
 - **Effort:** One line.
 
-### 3. Request timeouts for Fyers/HTTP calls
+### 2. Request timeouts for Fyers/HTTP calls
 - **Why:** So one stuck Fyers or notification call doesn’t hang the request forever.
 - **What:** Timeouts on `requests` / Fyers SDK calls (and notification POST if used).
 - **Effort:** Small (config + pass timeout where calls are made).
 
-### 4. Sanitize error responses
+### 3. Sanitize error responses
 - **Why:** Don’t leak stack traces or internal details in JSON responses.
 - **What:** Catch exceptions, log details internally, return generic messages (e.g. "Order placement failed") to the client.
 - **Effort:** Small; review `return jsonify(...)` in routes and fyers_api.
@@ -72,10 +68,9 @@ These improve safety and robustness without adding much code or complexity.
 
 ## Recommended Next Steps (short list)
 
-1. **Input validation + max qty** – Validate enums and strikeprice; enforce `WEBHOOK_MAX_QTY`.
-2. **MAX_CONTENT_LENGTH** – Set 64 KB in Flask app config.
-3. **Timeouts** – Add timeouts to outbound Fyers and notification calls.
-4. **Error sanitization** – No stack traces or internals in JSON responses; log details server-side only.
+1. **MAX_CONTENT_LENGTH** – Set 64 KB in Flask app config.
+2. **Timeouts** – Add timeouts to outbound Fyers and notification calls.
+3. **Error sanitization** – No stack traces or internals in JSON responses; log details server-side only.
 
 After these, the system is **robust enough for personal Cloud Run use** with TradingView as the only client, without over-engineering.
 
@@ -85,8 +80,8 @@ After these, the system is **robust enough for personal Cloud Run use** with Tra
 
 | Category              | Status |
 |------------------------|--------|
-| Already solid          | SL/TP, idempotency, logging, auth, retries, tests |
-| Do next (small set)    | Input validation + max qty, body size limit, timeouts, error sanitization |
+| Already solid          | SL/TP, idempotency, logging, auth, retries, tests, input validation + max qty |
+| Do next (small set)    | Body size limit, timeouts, error sanitization |
 | Optional / later       | DB audit, symbol refresh, richer health, graceful shutdown |
 | Skip for this context  | Rate limit, IP allowlist, CORS, circuit breaker, metrics/tracing, load/chaos tests |
 
