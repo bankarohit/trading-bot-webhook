@@ -58,7 +58,7 @@ async def health_check():
         logger.exception("Health check failed: %s",
                          e,
                          extra={"request_id": get_request_id()})
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": "Health check failed"}), 500
 
 
 @webhook_bp.route("/refresh-token", methods=["POST"])
@@ -431,9 +431,7 @@ async def webhook():
                 return (
                     jsonify({
                         "code": -1,
-                        "message":
-                        f"Fyers order failed: {order_response.get('message', 'Unknown error')}",
-                        "details": order_response,
+                        "message": "Order placement failed",
                     }),
                     500,
                 )
@@ -451,7 +449,7 @@ async def webhook():
             return (
                 jsonify({
                     "code": -1,
-                    "message": f"Exception while placing order: {str(e)}",
+                    "message": "Order placement failed",
                 }),
                 500,
             )
@@ -476,4 +474,4 @@ async def webhook():
             event="order_failed",
             error=str(e),
         )
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": "An unexpected error occurred"}), 500

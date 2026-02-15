@@ -34,10 +34,10 @@ These improve safety and robustness without adding much code or complexity.
 - **What:** Timeouts on `requests` / Fyers SDK calls (and notification POST if used).
 - **Effort:** Small (config + pass timeout where calls are made).
 
-### 3. Sanitize error responses
+### 3. Sanitize error responses ✅
 - **Why:** Don’t leak stack traces or internal details in JSON responses.
 - **What:** Catch exceptions, log details internally, return generic messages (e.g. "Order placement failed") to the client.
-- **Effort:** Small; review `return jsonify(...)` in routes and fyers_api.
+- **Status:** Implemented in `app/routes.py`: health check → "Health check failed"; order failure / exception → "Order placement failed"; unhandled webhook → "An unexpected error occurred". Full details logged server-side only; no `details` or `str(e)` in responses.
 
 ---
 
