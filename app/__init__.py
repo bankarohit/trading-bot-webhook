@@ -19,6 +19,7 @@ def create_app():
 
     load_env_variables()
     app = Flask(__name__)
+    app.config["MAX_CONTENT_LENGTH"] = 64 * 1024  # 64 KB request body limit
 
     def before_request():
         """Store a unique request ID and start timestamp for each request."""

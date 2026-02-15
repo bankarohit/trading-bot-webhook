@@ -24,10 +24,10 @@
 
 These improve safety and robustness without adding much code or complexity.
 
-### 1. Request body size limit
+### 1. Request body size limit ✅
 - **Why:** Avoid accidental or malformed huge payloads.
 - **What:** Set `app.config["MAX_CONTENT_LENGTH"] = 64 * 1024` (64 KB) in the app factory.
-- **Effort:** One line.
+- **Status:** Implemented in `app/__init__.py`.
 
 ### 2. Request timeouts for Fyers/HTTP calls
 - **Why:** So one stuck Fyers or notification call doesn’t hang the request forever.
