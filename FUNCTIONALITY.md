@@ -98,10 +98,13 @@ TradingView Alert (JSON)
 ## Key Data Structures
 
 ### Webhook Payload
+
+The `symbol` field is the **underlying** (e.g. `NIFTY`, `BANKNIFTY`), not the full Fyers ticker.
+
 ```json
 {
   "token": "secret",
-  "symbol": "NSE:BANKNIFTY",
+  "symbol": "BANKNIFTY",
   "strikeprice": 48400,
   "optionType": "PE",
   "expiry": "WEEKLY",
